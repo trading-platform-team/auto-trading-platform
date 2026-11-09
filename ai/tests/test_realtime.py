@@ -34,7 +34,7 @@ def test_detect_last_matches_full_scan():
 # ---------- 특징 ----------
 def test_extract_features():
     bars = [Bar(f"t{i}", 100, 10, 50, 50) for i in range(5)] + [Bar("x", 103, 50, 90, 10)]
-    ret, vol_ratio, imb, _ = extract(bars)
+    ret, vol_ratio, imb = extract(bars)
     assert ret == pytest.approx(3.0) and vol_ratio == pytest.approx(5.0) and imb == pytest.approx(0.8)
     assert extract(bars[:2]) is None
 
@@ -44,21 +44,21 @@ def test_model_trains_after_min_samples_and_flags_outlier():
     rng = np.random.default_rng(0)
     m = SymbolModel(min_samples=100)
     for _ in range(99):
-        m.update(rng.normal([0, 1, 0, 0.2], [0.2, 0.1, 0.05, 0.02]))
+        m.update(rng.normal([0, 1, 0], [0.2, 0.1, 0.05]))
     assert not m.trained
-    m.update(np.array([0, 1, 0, 0.2]))
+    m.update(np.array([0, 1, 0]))
     assert m.trained
 
-    hit = m.update(np.array([0.0, 8.0, 0.0, 0.2]))  # 거래량만 8배
+    hit = m.update(np.array([0.0, 8.0, 0.0]))  # 거래량만 8배
     assert hit is not None and hit["cause"] == "vol_ratio"
-    assert m.update(np.array([0.0, 1.0, 0.0, 0.2])) is None  # 평범한 값은 정상
+    assert m.update(np.array([0.0, 1.0, 0.0])) is None  # 평범한 값은 정상
 
 
 def test_registry_save_and_load(tmp_path):
     reg = ModelRegistry(model_dir=str(tmp_path), min_samples=20)
     rng = np.random.default_rng(1)
     for _ in range(25):
-        reg.get("005930").update(rng.normal(size=4))
+        reg.get("005930").update(rng.normal(size=3))
     assert reg.save_all() == 1
 
     reloaded = ModelRegistry(model_dir=str(tmp_path))
@@ -107,3 +107,15 @@ def test_evaluate_lof_beats_isolation_forest():
     assert r["LOF (채택)"]["f1"] > r["Isolation Forest"]["f1"]
     assert r["LOF (채택)"]["f1"] > r["룰 기반"]["f1"]  # 복합 이상은 룰이 놓침
     assert r["_by_type"]["combo"]["lof"] > r["_by_type"]["combo"]["rule"]
+
+
+def test_no_alert_echo_after_price_jump():
+    """가격 급변 1번 뒤에 같은 종목 경보가 연달아 반복되지 않아야 한다 (학습 100건 기준)"""
+    det = StreamDetector(ModelRegistry(min_samples=100))
+    stream = list(_normal_stream(400, seed=5))
+    for t in stream[:200]:
+        det.process(t)
+    jump = dict(stream[200], price=stream[199]["price"] * 1.05, timestamp="jump")
+    assert det.process(jump) is not None
+    after = [det.process(t) for t in stream[201:221]]  # 이후 20건
+    assert sum(a is not None for a in after) <= 2

@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app import db
-from app.api import health, market, strategies
+from app.api import health, market, strategies, ws
 from app.core.config import settings
 from app.market.consumer import consume_forever
 
@@ -24,7 +24,7 @@ async def lifespan(app: FastAPI):
     await app.state.redis.aclose()
 
 
-app = FastAPI(title="보조지표 기반 지능형 자동매매 플랫폼 API", version="0.3.0", lifespan=lifespan)
+app = FastAPI(title="보조지표 기반 지능형 자동매매 플랫폼 API", version="0.4.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -36,3 +36,4 @@ app.add_middleware(
 app.include_router(health.router)
 app.include_router(market.router)
 app.include_router(strategies.router)
+app.include_router(ws.router)
