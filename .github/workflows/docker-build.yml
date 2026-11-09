@@ -1,0 +1,15 @@
+name: Docker Build
+
+on:
+  pull_request:
+    branches: [develop, main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: docker-compose.yml 문법 검사
+        run: docker compose config --quiet
+      - name: 이미지 빌드 (frontend, backend, ai)
+        run: docker compose build
