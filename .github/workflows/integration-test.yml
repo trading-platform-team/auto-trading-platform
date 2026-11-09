@@ -34,6 +34,20 @@ jobs:
           done
           echo "시세 데이터가 Redis에 쌓이지 않음"; exit 1
 
+      - name: 자동매매 엔진 확인 (전략 등록 → 조건 충족 → 모의 주문 → Postgres 저장)
+        run: |
+          curl -sf -X POST http://localhost:8000/strategies \
+            -H "Content-Type: application/json" \
+            -d '{"name":"CI 테스트 전략","symbol":"005930","side":"buy","quantity":1,"cooldown_sec":5,
+                 "conditions":[{"left":{"name":"PRICE"},"op":">","right":0}]}'
+          for i in $(seq 1 20); do
+            res=$(curl -s http://localhost:8000/orders || true)
+            echo "$res" | head -c 300; echo
+            if echo "$res" | grep -q '"FILLED"'; then exit 0; fi
+            sleep 3
+          done
+          echo "모의 주문이 실행되지 않음"; exit 1
+
       - name: frontend → backend 프록시 확인
         run: curl -sf http://localhost:3000/api/health
 
