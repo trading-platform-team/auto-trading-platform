@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import PriceTable from './PriceTable.jsx'
 import { toStatusRows } from './status.js'
 
 export default function App() {
@@ -13,8 +14,10 @@ export default function App() {
   }, [])
 
   return (
-    <main style={{ fontFamily: 'sans-serif', maxWidth: 640, margin: '40px auto', padding: '0 16px' }}>
+    <main style={{ fontFamily: 'sans-serif', maxWidth: 760, margin: '40px auto', padding: '0 16px' }}>
       <h1>보조지표 기반 지능형 자동매매 플랫폼</h1>
+      <h2>실시간 시세 (모의)</h2>
+      <PriceTable />
       <h2>서비스 상태</h2>
       {error && <p style={{ color: 'crimson' }}>{error}</p>}
       <ul>

@@ -60,11 +60,12 @@ auto-trading-platform/
 # 1. 환경 변수 파일 만들기 (실제 키는 절대 커밋하지 않기)
 cp .env.example .env
 
-# 2. 전체 실행 (컨테이너 7개)
+# 2. 전체 실행 (컨테이너 8개)
 docker compose up -d --build
 
-# 3. 컨테이너 간 통신 확인
+# 3. 컨테이너 간 통신·실시간 시세 확인
 curl http://localhost:8000/health/deps
+curl http://localhost:8000/market/prices
 
 # 4. (선택) 프론트엔드 개발 서버
 cd frontend
