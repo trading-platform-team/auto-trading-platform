@@ -1,6 +1,7 @@
 # 컨테이너 8종: frontend, backend, collector, ai, kafka, redis, postgres, vault
 # 모든 컨테이너는 trading-net 네트워크에서 서비스 이름으로 서로 통신한다.
 #   collector ──시세──> kafka(stock.price) ──> backend ──> redis(캐시)
+#                                          └──> ai(이상탐지) ──> kafka(stock.anomaly), redis(경보)
 #   frontend(nginx) ──/api──> backend ──> postgres, vault, ai
 
 services:
@@ -55,8 +56,15 @@ services:
     container_name: ai
     ports:
       - "8001:8001"
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      REDIS_URL: redis://redis:6379/0
+      MODEL_DIR: /app/models
     volumes:
-      - ai-models:/app/models          # 학습된 이상탐지 모델 저장
+      - ai-models:/app/models          # 학습된 이상탐지 모델(LOF) 저장
+    depends_on:
+      - kafka
+      - redis
     networks: [trading-net]
 
   kafka:

@@ -161,3 +161,16 @@ def test_orders_alerts_indicators_api(client, fake_redis):
 
     ind = client.get("/indicators/005930").json()
     assert ind["count"] == len(RISING) and ind["rsi14"] == pytest.approx(100)
+
+
+def test_anomalies_api(client, fake_redis):
+    import asyncio
+    import json
+
+    async def seed():
+        for sym in ("005930", "000660"):
+            await fake_redis.lpush("anomalies", json.dumps({"symbol": sym, "message": "test"}))
+
+    asyncio.run(seed())
+    assert len(client.get("/anomalies").json()) == 2
+    assert [a["symbol"] for a in client.get("/anomalies?symbol=005930").json()] == ["005930"]

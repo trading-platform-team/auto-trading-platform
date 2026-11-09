@@ -48,6 +48,16 @@ jobs:
           done
           echo "모의 주문이 실행되지 않음"; exit 1
 
+      - name: AI 실시간 이상탐지 확인 (kafka → ai → redis → backend /anomalies)
+        run: |
+          for i in $(seq 1 30); do
+            res=$(curl -s http://localhost:8000/anomalies || true)
+            echo "$res" | head -c 400; echo
+            if echo "$res" | grep -q '"anomaly"'; then exit 0; fi
+            sleep 5
+          done
+          echo "이상탐지 경보가 생성되지 않음"; docker compose logs ai | tail -50; exit 1
+
       - name: frontend → backend 프록시 확인
         run: curl -sf http://localhost:3000/api/health
 
