@@ -5,7 +5,8 @@ import redis.asyncio as aioredis
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import health, market
+from app import db
+from app.api import health, market, strategies
 from app.core.config import settings
 from app.market.consumer import consume_forever
 
@@ -13,6 +14,9 @@ from app.market.consumer import consume_forever
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     app.state.redis = aioredis.from_url(settings.redis_url, decode_responses=True)
+    if db.engine is None:  # 테스트에서는 미리 SQLite로 설정해 둔다
+        db.configure(settings.database_url)
+    await asyncio.to_thread(db.init_db)
     task = asyncio.create_task(consume_forever(app.state.redis)) if settings.enable_consumer else None
     yield
     if task:
@@ -20,7 +24,7 @@ async def lifespan(app: FastAPI):
     await app.state.redis.aclose()
 
 
-app = FastAPI(title="보조지표 기반 지능형 자동매매 플랫폼 API", version="0.2.0", lifespan=lifespan)
+app = FastAPI(title="보조지표 기반 지능형 자동매매 플랫폼 API", version="0.3.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -31,3 +35,4 @@ app.add_middleware(
 
 app.include_router(health.router)
 app.include_router(market.router)
+app.include_router(strategies.router)

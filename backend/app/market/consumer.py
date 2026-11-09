@@ -9,6 +9,7 @@ from aiokafka.errors import KafkaConnectionError
 
 from app.core.config import settings
 from app.market.cache import save_tick
+from app.strategy.engine import on_tick
 
 log = logging.getLogger("uvicorn.error")
 
@@ -27,6 +28,8 @@ async def consume_forever(r) -> None:
             log.info("Kafka Consumer 시작: %s", settings.price_topic)
             async for msg in consumer:
                 await save_tick(r, msg.value)
+                if settings.enable_engine:
+                    await on_tick(r, msg.value)  # 자동매매 전략 평가
         except KafkaConnectionError:
             log.info("Kafka 연결 대기 중...")
             await asyncio.sleep(3)

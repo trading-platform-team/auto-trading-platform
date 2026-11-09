@@ -83,6 +83,38 @@ npm run dev     # http://localhost:5173
 | Kafka | localhost:9092 |
 | Redis | localhost:6379 |
 
+## 주요 API
+
+| 메서드 | 경로 | 설명 |
+|---|---|---|
+| GET | `/market/prices` | 전 종목 최신 시세 |
+| GET | `/market/ticks/{종목코드}` | 종목별 최근 시세 |
+| GET | `/indicators/{종목코드}` | SMA·RSI·볼린저밴드 최신값 |
+| POST / GET | `/strategies` | 매매 전략 등록 / 목록 |
+| GET / PUT / DELETE | `/strategies/{id}` | 전략 조회 / 수정 / 삭제 |
+| GET | `/orders` | 모의 주문 내역 |
+| GET | `/alerts` | 최근 알림 |
+
+전략 예시 (RSI가 30 아래이고 현재가가 볼린저밴드 하단을 뚫으면 10주 매수):
+
+```json
+{
+  "name": "과매도 반등 매수",
+  "symbol": "005930",
+  "side": "buy",
+  "quantity": 10,
+  "cooldown_sec": 60,
+  "conditions": [
+    {"left": {"name": "RSI", "period": 14}, "op": "<", "right": 30},
+    {"left": {"name": "PRICE"}, "op": "<", "right": {"name": "BB_LOWER", "period": 20, "k": 2}}
+  ]
+}
+```
+
+- 지표: `PRICE`, `SMA`, `EMA`, `RSI`, `BB_UPPER`, `BB_MIDDLE`, `BB_LOWER`
+- 연산자: `<`, `<=`, `>`, `>=`, `cross_up`(상향 돌파), `cross_down`(하향 돌파)
+- 조건은 모두 만족(AND)해야 주문이 실행됩니다.
+
 ## 팀원 및 역할
 
 | 이름 | 역할 |

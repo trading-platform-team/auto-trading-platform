@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     price_topic: str = "stock.price"
     tick_interval_sec: float = 1.0
     enable_consumer: bool = True
+    enable_engine: bool = True  # 자동매매 엔진
 
     kiwoom_app_key: str = ""
     kiwoom_secret_key: str = ""

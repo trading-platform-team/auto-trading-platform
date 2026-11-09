@@ -53,7 +53,7 @@ async def test_cache_keeps_only_recent_ticks():
     assert len(await get_ticks(r, "005930", limit=1000)) == MAX_TICKS
 
 
-def test_market_api(monkeypatch):
+def test_market_api(monkeypatch, sqlite_db):
     monkeypatch.setattr("app.main.settings.enable_consumer", False)
     fake = fakeredis.FakeAsyncRedis(decode_responses=True)
     monkeypatch.setattr("app.main.aioredis.from_url", lambda *a, **k: fake)
