@@ -11,6 +11,12 @@
 | 이상 거래 탐지 | 시세·거래량·호가 데이터를 분석해 거래량 급증, 가격 급변, 호가 불균형 등 이상 징후를 탐지하고 경보 제공 |
 | 타임머신 트레이딩 | 과거 특정 시점의 시세를 재생하며 자동 백테스트 모드와 직접 매매 모드로 전략 검증 |
 
+## 화면
+
+![대시보드](docs/images/dashboard.png)
+
+실시간 시세·보조지표 차트, 전략 등록(조건 빌더·프리셋), 모의 주문 내역, AI 이상거래 경보, WebSocket 실시간 알림과 음성 알림(TTS)을 한 화면에서 제공합니다.
+
 ## 시스템 구성
 
 ```
@@ -89,12 +95,14 @@ npm run dev     # http://localhost:5173
 |---|---|---|
 | GET | `/market/prices` | 전 종목 최신 시세 |
 | GET | `/market/ticks/{종목코드}` | 종목별 최근 시세 |
+| GET | `/market/chart/{종목코드}` | 차트용 시세 + 지표 시계열 |
 | GET | `/indicators/{종목코드}` | SMA·RSI·볼린저밴드 최신값 |
 | POST / GET | `/strategies` | 매매 전략 등록 / 목록 |
 | GET / PUT / DELETE | `/strategies/{id}` | 전략 조회 / 수정 / 삭제 |
 | GET | `/orders` | 모의 주문 내역 |
 | GET | `/alerts` | 최근 알림 (주문 + 이상거래) |
 | GET | `/anomalies` | AI 이상거래 경보 ([설명](docs/anomaly-detection.md)) |
+| WS | `/ws/alerts` | 실시간 알림 (Redis Pub/Sub → WebSocket) |
 
 전략 예시 (RSI가 30 아래이고 현재가가 볼린저밴드 하단을 뚫으면 10주 매수):
 

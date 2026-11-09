@@ -1,32 +1,69 @@
-import { useEffect, useState } from 'react'
-import PriceTable from './PriceTable.jsx'
-import { toStatusRows } from './status.js'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { api } from './api.js'
+import AlertFeed from './components/AlertFeed.jsx'
+import AnomalyPanel from './components/AnomalyPanel.jsx'
+import Header from './components/Header.jsx'
+import OrderTable from './components/OrderTable.jsx'
+import PriceChart from './components/PriceChart.jsx'
+import PriceTable from './components/PriceTable.jsx'
+import StrategyPanel from './components/StrategyPanel.jsx'
+import { speechText } from './format.js'
+import { useAlertSocket, usePolling } from './hooks.js'
+
+function speak(text) {
+  if (!('speechSynthesis' in window) || window.speechSynthesis.pending) return // 밀려 있으면 건너뜀
+  const u = new SpeechSynthesisUtterance(text)
+  u.lang = 'ko-KR'
+  u.rate = 1.1
+  window.speechSynthesis.speak(u)
+}
 
 export default function App() {
-  const [rows, setRows] = useState([])
-  const [error, setError] = useState(null)
+  const [selected, setSelected] = useState('005930')
+  const [voice, setVoice] = useState(false)
+  const [alerts, setAlerts] = useState([])
+  const { data: prices } = usePolling(api.prices, 5000)
+  const { data: anomaliesData } = usePolling(() => api.anomalies(30), 2000)
 
+  // 처음 열었을 때 최근 알림 불러오기
   useEffect(() => {
-    fetch('/api/health/deps')
-      .then((r) => r.json())
-      .then((data) => setRows(toStatusRows(data.deps)))
-      .catch(() => setError('백엔드에 연결할 수 없습니다'))
+    api.alerts(30).then(setAlerts).catch(() => {})
   }, [])
 
+  const onAlert = useCallback(
+    (a) => {
+      setAlerts((prev) => [a, ...prev].slice(0, 50))
+      if (voice && (a.type === 'order' || a.level === 'high')) speak(speechText(a))
+    },
+    [voice],
+  )
+  const wsConnected = useAlertSocket(onAlert)
+
+  const symbols = prices ?? []
+  const anomalies = anomaliesData ?? []
+  const recentAnomalySymbols = useMemo(() => {
+    const cutoff = Date.now() - 60_000
+    return new Set(anomalies.filter((a) => new Date(a.timestamp).getTime() > cutoff).map((a) => a.symbol))
+  }, [anomalies])
+  const selectedName = symbols.find((s) => s.symbol === selected)?.name
+
   return (
-    <main style={{ fontFamily: 'sans-serif', maxWidth: 760, margin: '40px auto', padding: '0 16px' }}>
-      <h1>보조지표 기반 지능형 자동매매 플랫폼</h1>
-      <h2>실시간 시세 (모의)</h2>
-      <PriceTable />
-      <h2>서비스 상태</h2>
-      {error && <p style={{ color: 'crimson' }}>{error}</p>}
-      <ul>
-        {rows.map((r) => (
-          <li key={r.name}>
-            {r.ok ? '🟢' : '🔴'} {r.name}: {r.label}
-          </li>
-        ))}
-      </ul>
-    </main>
+    <div className="app">
+      <Header voice={voice} onToggleVoice={() => setVoice((v) => !v)} wsConnected={wsConnected} />
+      <main className="grid">
+        <div className="col-left">
+          <PriceTable selected={selected} onSelect={setSelected} anomalySymbols={recentAnomalySymbols} />
+          <AlertFeed alerts={alerts} />
+        </div>
+        <div className="col-center">
+          <PriceChart symbol={selected} name={selectedName} />
+          <OrderTable />
+        </div>
+        <div className="col-right">
+          <StrategyPanel symbols={symbols} selected={selected} />
+          <AnomalyPanel anomalies={anomalies} onSelect={setSelected} />
+        </div>
+      </main>
+    </div>
   )
 }
