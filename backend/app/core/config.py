@@ -14,6 +14,12 @@ class Settings(BaseSettings):
     vault_addr: str = "http://localhost:8200"
     ai_service_url: str = "http://localhost:8001"
 
+    # 시세 파이프라인
+    market_source: str = "mock"  # mock | kiwoom
+    price_topic: str = "stock.price"
+    tick_interval_sec: float = 1.0
+    enable_consumer: bool = True
+
     kiwoom_app_key: str = ""
     kiwoom_secret_key: str = ""
     kiwoom_base_url: str = "https://mockapi.kiwoom.com"

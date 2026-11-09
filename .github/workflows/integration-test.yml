@@ -24,6 +24,16 @@ jobs:
           done
           echo "의존 서비스 연결 실패"; exit 1
 
+      - name: 시세 파이프라인 확인 (collector → kafka → backend → redis)
+        run: |
+          for i in $(seq 1 30); do
+            res=$(curl -s http://localhost:8000/market/prices || true)
+            echo "$res" | head -c 300; echo
+            if echo "$res" | grep -q '"symbol"'; then exit 0; fi
+            sleep 5
+          done
+          echo "시세 데이터가 Redis에 쌓이지 않음"; exit 1
+
       - name: frontend → backend 프록시 확인
         run: curl -sf http://localhost:3000/api/health
 

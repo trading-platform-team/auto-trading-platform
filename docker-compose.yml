@@ -1,6 +1,7 @@
-# 컨테이너 7종: frontend, backend, ai, kafka, redis, postgres, vault
+# 컨테이너 8종: frontend, backend, collector, ai, kafka, redis, postgres, vault
 # 모든 컨테이너는 trading-net 네트워크에서 서비스 이름으로 서로 통신한다.
-#   frontend(nginx) ──/api──> backend ──> kafka, redis, postgres, vault, ai
+#   collector ──시세──> kafka(stock.price) ──> backend ──> redis(캐시)
+#   frontend(nginx) ──/api──> backend ──> postgres, vault, ai
 
 services:
   frontend:
@@ -32,6 +33,21 @@ services:
       - postgres
       - vault
       - ai
+    networks: [trading-net]
+
+  collector:
+    build: ./backend
+    container_name: collector
+    command: ["python", "-m", "app.market.collector"]
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      MARKET_SOURCE: ${MARKET_SOURCE:-mock}
+    env_file:
+      - path: .env
+        required: false
+    depends_on:
+      - kafka
+    restart: unless-stopped
     networks: [trading-net]
 
   ai:
