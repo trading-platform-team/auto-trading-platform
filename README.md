@@ -32,7 +32,7 @@
 |---|---|
 | Backend | Python, FastAPI |
 | Frontend | React (Vite) |
-| AI | scikit-learn, pandas (이상탐지) |
+| AI | scikit-learn (LOF 이상탐지) |
 | 메시징·캐시 | Apache Kafka, Redis |
 | 보조지표 | TA-Lib |
 | 보안 | HashiCorp Vault |
@@ -93,7 +93,8 @@ npm run dev     # http://localhost:5173
 | POST / GET | `/strategies` | 매매 전략 등록 / 목록 |
 | GET / PUT / DELETE | `/strategies/{id}` | 전략 조회 / 수정 / 삭제 |
 | GET | `/orders` | 모의 주문 내역 |
-| GET | `/alerts` | 최근 알림 |
+| GET | `/alerts` | 최근 알림 (주문 + 이상거래) |
+| GET | `/anomalies` | AI 이상거래 경보 ([설명](docs/anomaly-detection.md)) |
 
 전략 예시 (RSI가 30 아래이고 현재가가 볼린저밴드 하단을 뚫으면 10주 매수):
 

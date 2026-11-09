@@ -30,7 +30,8 @@ def test_orderbook_imbalance():
     assert found and found[0].value == 0.8
 
 
-def test_detect_api():
+def test_detect_api(monkeypatch):
+    monkeypatch.setenv("ENABLE_STREAM", "false")
     client = TestClient(app)
     body = {"bars": [{"timestamp": "a", "price": 100, "volume": 1},
                      {"timestamp": "b", "price": 110, "volume": 1}]}

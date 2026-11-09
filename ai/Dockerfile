@@ -6,7 +6,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY anomaly ./anomaly
-COPY service.py .
+COPY service.py stream.py ./
 
 EXPOSE 8001
 CMD ["uvicorn", "service:app", "--host", "0.0.0.0", "--port", "8001"]

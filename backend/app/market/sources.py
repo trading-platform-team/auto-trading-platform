@@ -29,7 +29,7 @@ def make_tick(symbol: str, name: str, price: float, volume: int, bid_size: int, 
 
 
 class MockSource:
-    """가상 시세 생성기. anomaly_rate 확률로 거래량 급증·가격 급변 이벤트를 섞는다."""
+    """가상 시세 생성기. anomaly_rate 확률로 거래량 급증·가격 급변·호가 쏠림·복합 이상을 섞는다."""
 
     def __init__(self, symbols: dict | None = None, anomaly_rate: float = 0.02, seed: int | None = None):
         self.symbols = symbols or DEFAULT_SYMBOLS
@@ -45,13 +45,18 @@ class MockSource:
             bid, ask = self.rng.randint(400, 600), self.rng.randint(400, 600)
 
             if self.rng.random() < self.anomaly_rate:  # 이상 이벤트
-                kind = self.rng.choice(["volume", "price", "orderbook"])
+                kind = self.rng.choice(["volume", "price", "orderbook", "combo"])
                 if kind == "volume":
                     volume *= self.rng.randint(5, 10)
                 elif kind == "price":
                     change = self.rng.choice([-1, 1]) * self.rng.uniform(0.03, 0.06)
-                else:
+                elif kind == "orderbook":
                     bid, ask = (bid * 8, ask) if self.rng.random() < 0.5 else (bid, ask * 8)
+                else:  # 복합: 각각은 룰 기준 미만이지만 동시에 발생 (AI 모델만 탐지)
+                    volume = int(100 * self.rng.uniform(2.0, 2.8))
+                    change = self.rng.uniform(0.015, 0.025)
+                    imb, total = self.rng.uniform(0.35, 0.5), bid + ask
+                    bid, ask = int(total * (1 + imb) / 2), int(total * (1 - imb) / 2)
 
             self.prices[symbol] = max(1.0, self.prices[symbol] * (1 + change))
             ticks.append(make_tick(symbol, name, self.prices[symbol], volume, bid, ask))

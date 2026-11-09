@@ -71,6 +71,16 @@ async def list_alerts(request: Request, limit: int = 20):
     return [json.loads(a) for a in raw]
 
 
+@router.get("/anomalies")
+async def list_anomalies(request: Request, limit: int = 20, symbol: str | None = None):
+    """AI 서비스가 탐지한 이상거래 경보 (최신순)"""
+    raw = await request.app.state.redis.lrange("anomalies", 0, 199)
+    items = [json.loads(a) for a in raw]
+    if symbol:
+        items = [a for a in items if a["symbol"] == symbol]
+    return items[: min(limit, 200)]
+
+
 @router.get("/indicators/{symbol}")
 async def indicators(symbol: str, request: Request):
     """종목의 주요 보조지표 최신값 (SMA5·SMA20·RSI14·볼린저밴드)"""
