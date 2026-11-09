@@ -1,0 +1,24 @@
+name: AI Test
+
+on:
+  pull_request:
+    branches: [develop, main]
+    paths: ["ai/**", ".github/workflows/ai-test.yml"]
+  push:
+    branches: [develop, main]
+    paths: ["ai/**"]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ai
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - run: pytest -v
