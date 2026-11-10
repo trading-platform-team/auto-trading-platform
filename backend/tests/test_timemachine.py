@@ -7,6 +7,7 @@ from app.backtest.engine import max_drawdown_pct, run_backtest
 from app.history.synthetic import generate_daily
 from app.main import app
 from app.timemachine import session as tm
+from tests.conftest import login
 
 
 def _bars(closes):
@@ -96,6 +97,7 @@ def client(sqlite_db, fake_redis, monkeypatch):
     monkeypatch.setattr("app.main.aioredis.from_url", lambda *a, **k: fake_redis)
     monkeypatch.setattr("app.api.timemachine.settings.ai_service_url", "http://127.0.0.1:9")  # AI 없음
     with TestClient(app) as c:
+        login(c)
         yield c
 
 

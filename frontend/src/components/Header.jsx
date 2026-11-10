@@ -1,9 +1,9 @@
-import { api } from '../api.js'
+import { api, auth } from '../api.js'
 import { usePolling } from '../hooks.js'
 
 const LABEL = { kafka: 'Kafka', redis: 'Redis', postgres: 'DB', vault: 'Vault', ai: 'AI' }
 
-export default function Header({ voice, onToggleVoice, wsConnected, page, onPage }) {
+export default function Header({ voice, onToggleVoice, wsConnected, page, onPage, username }) {
   const { data } = usePolling(api.health, 5000)
   const deps = data?.deps ?? {}
 
@@ -38,6 +38,12 @@ export default function Header({ voice, onToggleVoice, wsConnected, page, onPage
         <button className={`btn ${voice ? 'btn-on' : ''}`} onClick={onToggleVoice}>
           {voice ? '🔊 음성 알림 켜짐' : '🔈 음성 알림 꺼짐'}
         </button>
+        <span className="user-chip" title="로그인한 계정">
+          👤 {username}
+          <button className="icon-btn" onClick={() => auth.set(null)} title="로그아웃">
+            로그아웃
+          </button>
+        </span>
       </div>
     </header>
   )

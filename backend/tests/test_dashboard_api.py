@@ -49,8 +49,24 @@ def test_alerts_websocket(client, server):
 
     def publish_later():
         time.sleep(0.3)
-        pub.publish("alerts", json.dumps({"type": "order", "message": "테스트 주문"}))
+        # 남의 주문 알림 → 안 받아야 함, 이상거래 → 받아야 함
+        pub.publish("alerts", json.dumps({"type": "order", "user_id": 999, "message": "남의 주문"}))
+        pub.publish("alerts", json.dumps({"type": "anomaly", "message": "이상거래"}))
 
     with client.websocket_connect("/ws/alerts") as ws:
         threading.Thread(target=publish_later).start()
-        assert json.loads(ws.receive_text())["message"] == "테스트 주문"
+        assert json.loads(ws.receive_text())["message"] == "이상거래"
+
+
+def test_alerts_websocket_with_token_receives_my_orders(client, server):
+    from app.auth.security import create_token
+
+    pub = fakeredis.FakeRedis(server=server, decode_responses=True)
+
+    def publish_later():
+        time.sleep(0.3)
+        pub.publish("alerts", json.dumps({"type": "order", "user_id": 7, "message": "내 주문"}))
+
+    with client.websocket_connect(f"/ws/alerts?token={create_token(7, 'me')}") as ws:
+        threading.Thread(target=publish_later).start()
+        assert json.loads(ws.receive_text())["message"] == "내 주문"

@@ -27,6 +27,7 @@ services:
       REDIS_URL: redis://redis:6379/0
       DATABASE_URL: postgresql://${POSTGRES_USER:-trader}:${POSTGRES_PASSWORD:-change-me}@postgres:5432/${POSTGRES_DB:-trading}
       VAULT_ADDR: http://vault:8200
+      VAULT_TOKEN: ${VAULT_TOKEN:-dev-root-token}   # JWT 서명 키를 Vault에서 읽고 씀
       AI_SERVICE_URL: http://ai:8001
     depends_on:
       - kafka

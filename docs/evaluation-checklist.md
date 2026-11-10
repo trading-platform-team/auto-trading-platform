@@ -24,7 +24,7 @@
 |---|---|
 | Apache Kafka | 실시간 시세 스트림 |
 | Redis | 전략 조건 매칭, 캐싱 |
-| HashiCorp Vault | API 키 등 민감정보 관리 |
+| HashiCorp Vault | JWT 서명 키 보관(자동 생성·조회), 키움 API 키 보관 예정 |
 | TA-Lib | 보조지표 계산 |
 | k6 | 부하 테스트 |
 | nginx | 프론트 정적 파일 서빙, API 리버스 프록시 |

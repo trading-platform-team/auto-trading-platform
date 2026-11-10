@@ -8,6 +8,7 @@ from app.market.sources import make_tick
 from app.strategy.engine import ALERTS_KEY, on_tick
 from app.strategy.evaluator import evaluate, evaluate_condition
 from app.strategy.indicators import compute, snapshot
+from tests.conftest import login
 
 RISING = np.arange(100, 140, dtype=float)  # 계속 오르는 가격
 FALLING = RISING[::-1].copy()
@@ -89,6 +90,7 @@ def client(sqlite_db, fake_redis, monkeypatch):
     monkeypatch.setattr("app.main.settings.enable_consumer", False)
     monkeypatch.setattr("app.main.aioredis.from_url", lambda *a, **k: fake_redis)
     with TestClient(app) as c:
+        login(c)
         yield c
 
 
@@ -98,7 +100,7 @@ async def test_engine_places_order_and_respects_cooldown(sqlite_db, fake_redis):
     from app.strategy.models import Strategy
 
     with db.new_session() as s:
-        s.add(Strategy(name="RSI 과매도", symbol="005930", side="buy", quantity=10, cooldown_sec=60,
+        s.add(Strategy(name="RSI 과매도", symbol="005930", side="buy", quantity=10, cooldown_sec=60, user_id=1,
                        conditions=[{"left": {"name": "RSI", "period": 14}, "op": "<", "right": 30}]))
         s.commit()
 

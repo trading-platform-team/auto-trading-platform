@@ -40,6 +40,7 @@ def _place(strategy_id: int, price: float, reason: dict) -> dict:
         order = broker.place(s, strategy, price, reason)
         return {
             "order_id": order.id,
+            "user_id": order.user_id,
             "strategy_id": strategy.id,
             "strategy_name": strategy.name,
             "symbol": order.symbol,
@@ -77,6 +78,7 @@ async def on_tick(r, tick: dict) -> list[dict]:
         order = await asyncio.to_thread(_place, st.id, tick["price"], {"conditions": details})
         alert = {
             "type": "order",
+            "user_id": order["user_id"],  # 주문 알림은 전략 주인에게만 전달
             "message": f"[{st.name}] {tick['name']} {st.quantity}주 {'매수' if st.side == 'buy' else '매도'} "
             f"@ {tick['price']:,}원",
             "order": order,

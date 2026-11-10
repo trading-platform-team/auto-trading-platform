@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
+from app.auth.deps import CurrentUser
 from app.backtest.engine import run_backtest
 from app.backtest.presets import PRESETS
 from app.core.config import settings
@@ -100,11 +101,12 @@ def backtest(body: BacktestIn, s: SessionDep):
 
 
 # ---------- 직접 매매 세션 (#20 재생, #22 직접 매매) ----------
-async def _load(request: Request, sid: str) -> dict:
+async def _load(request: Request, sid: str, user: dict) -> dict:
     raw = await request.app.state.redis.get(f"tm:{sid}")
-    if not raw:
+    st = json.loads(raw) if raw else None
+    if not st or st.get("user_id") != user["id"]:  # 남의 세션은 없는 것처럼
         raise HTTPException(404, "세션이 없거나 만료되었습니다")
-    return json.loads(raw)
+    return st
 
 
 async def _save(request: Request, st: dict) -> None:
@@ -149,25 +151,26 @@ class OrderIn(BaseModel):
 
 
 @router.post("/timemachine/sessions", status_code=201)
-async def create_session(body: SessionIn, request: Request, s: SessionDep):
+async def create_session(body: SessionIn, request: Request, s: SessionDep, user: CurrentUser):
     bars = _bars_or_404(s, body.symbol)
     try:
         st = tm.create(bars, body.symbol, _name(body.symbol), body.start_date.isoformat(), body.initial_cash)
     except tm.SessionError as e:
         raise HTTPException(422, str(e)) from e
+    st["user_id"] = user["id"]
     await _save(request, st)
     return await _view(st, bars)
 
 
 @router.get("/timemachine/sessions/{sid}")
-async def get_session_view(sid: str, request: Request, s: SessionDep):
-    st = await _load(request, sid)
+async def get_session_view(sid: str, request: Request, s: SessionDep, user: CurrentUser):
+    st = await _load(request, sid, user)
     return await _view(st, _bars_or_404(s, st["symbol"]))
 
 
 @router.post("/timemachine/sessions/{sid}/step")
-async def step_session(sid: str, body: StepIn, request: Request, s: SessionDep):
-    st = await _load(request, sid)
+async def step_session(sid: str, body: StepIn, request: Request, s: SessionDep, user: CurrentUser):
+    st = await _load(request, sid, user)
     bars = _bars_or_404(s, st["symbol"])
     try:
         tm.step(st, bars, body.days)
@@ -178,8 +181,8 @@ async def step_session(sid: str, body: StepIn, request: Request, s: SessionDep):
 
 
 @router.post("/timemachine/sessions/{sid}/order")
-async def order_session(sid: str, body: OrderIn, request: Request, s: SessionDep):
-    st = await _load(request, sid)
+async def order_session(sid: str, body: OrderIn, request: Request, s: SessionDep, user: CurrentUser):
+    st = await _load(request, sid, user)
     bars = _bars_or_404(s, st["symbol"])
     try:
         tm.order(st, bars, body.side, body.quantity)
@@ -190,8 +193,8 @@ async def order_session(sid: str, body: OrderIn, request: Request, s: SessionDep
 
 
 @router.post("/timemachine/sessions/{sid}/finish")
-async def finish_session(sid: str, request: Request, s: SessionDep):
-    st = await _load(request, sid)
+async def finish_session(sid: str, request: Request, s: SessionDep, user: CurrentUser):
+    st = await _load(request, sid, user)
     bars = _bars_or_404(s, st["symbol"])
     result = tm.finish(st, bars)
     await _save(request, st)

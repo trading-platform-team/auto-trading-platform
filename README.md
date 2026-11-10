@@ -84,7 +84,9 @@ docker compose up -d --build
 curl http://localhost:8000/health/deps
 curl http://localhost:8000/market/prices
 
-# 4. (선택) 프론트엔드 개발 서버
+# 4. http://localhost:3000 에서 회원가입 후 사용
+
+# 5. (선택) 프론트엔드 개발 서버
 cd frontend
 npm install
 npm run dev     # http://localhost:5173
@@ -100,10 +102,21 @@ npm run dev     # http://localhost:5173
 | Kafka | localhost:9092 |
 | Redis | localhost:6379 |
 
+## 인증과 민감정보 관리
+
+- 회원가입·로그인 후 받은 JWT를 `Authorization: Bearer <토큰>` 헤더로 보낸다 (유효 12시간)
+- 비밀번호는 PBKDF2-SHA256(사용자별 salt, 200,000회)으로 해시해서 저장
+- **JWT 서명 키는 HashiCorp Vault(`secret/trading`)에 보관**한다. 처음 실행할 때 백엔드가 키를 만들어 Vault에 저장하고, 이후에는 Vault에서 읽는다. 코드나 `.env`에 키가 남지 않는다
+- 로그인이 필요한 기능: 전략, 주문 내역, 타임머신 직접 매매 세션 (모두 본인 것만 보임)
+- 공개 기능: 시세, 지표, 이상거래 경보, 백테스트
+- 실시간 알림 WebSocket은 `?token=`을 붙이면 내 주문 알림까지, 없으면 이상거래 알림만 받는다
+
 ## 주요 API
 
 | 메서드 | 경로 | 설명 |
 |---|---|---|
+| POST | `/auth/register`, `/auth/login` | 회원가입 / 로그인 (JWT 발급) |
+| GET | `/auth/me` | 내 계정 |
 | GET | `/market/prices` | 전 종목 최신 시세 |
 | GET | `/market/ticks/{종목코드}` | 종목별 최근 시세 |
 | GET | `/market/chart/{종목코드}` | 차트용 시세 + 지표 시계열 |

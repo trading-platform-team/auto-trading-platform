@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { api } from './api.js'
+import { api, auth } from './api.js'
 import AlertFeed from './components/AlertFeed.jsx'
 import AnomalyPanel from './components/AnomalyPanel.jsx'
 import Header from './components/Header.jsx'
+import LoginScreen from './components/LoginScreen.jsx'
 import OrderTable from './components/OrderTable.jsx'
 import PriceChart from './components/PriceChart.jsx'
 import PriceTable from './components/PriceTable.jsx'
@@ -20,6 +21,20 @@ function speak(text) {
 }
 
 export default function App() {
+  const [user, setUser] = useState(auth.get())
+
+  useEffect(() => {
+    const onChange = (e) => setUser(e.detail)
+    window.addEventListener('auth:change', onChange)
+    return () => window.removeEventListener('auth:change', onChange)
+  }, [])
+
+  if (!user) return <LoginScreen />
+  // key: 다른 계정으로 바꾸면 화면 상태·WebSocket을 새로 시작
+  return <Dashboard key={user.username} username={user.username} />
+}
+
+function Dashboard({ username }) {
   const [page, setPage] = useState('live')
   const [selected, setSelected] = useState('005930')
   const [voice, setVoice] = useState(false)
@@ -51,7 +66,7 @@ export default function App() {
 
   return (
     <div className="app">
-      <Header voice={voice} onToggleVoice={() => setVoice((v) => !v)} wsConnected={wsConnected} page={page} onPage={setPage} />
+      <Header voice={voice} onToggleVoice={() => setVoice((v) => !v)} wsConnected={wsConnected} page={page} onPage={setPage} username={username} />
       {page === 'timemachine' ? (
         <main className="tm-main">
           <TimeMachinePage />
