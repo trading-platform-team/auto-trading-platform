@@ -75,7 +75,7 @@ Apache Kafka(실시간 시세 스트림), Redis(전략 조건 매칭·캐싱), T
 | 평가항목 | 현재 상태 |
 |---|---|
 | Git 브랜치 계층 관리 | main / develop / feature 사용 중. release, hotfix는 아직 사용 전 (아래 7번 참고) |
-| PR 활용 | main·develop 직접 push 금지, PR + 승인 1명 필수. PR #33 ~ #37 머지 |
+| PR 활용 | main·develop 직접 push 금지, PR + 승인 1명 필수. PR #33 ~ #38 머지 |
 | Docker Compose 3종 이상 | 컨테이너 8종: frontend, backend, collector, ai, kafka, redis, postgres, vault |
 | 컨테이너 간 통신 | collector → kafka → backend → redis, kafka → ai → redis, frontend(nginx) → backend 등 |
 | 볼륨 | pg-data(전략·주문), redis-data, kafka-data, ai-models(학습된 AI 모델) |
@@ -113,7 +113,8 @@ Apache Kafka(실시간 시세 스트림), Redis(전략 조건 매칭·캐싱), T
 | #35 | feature/backend-strategy-engine | TA-Lib 보조지표, 전략 CRUD, 조건 매칭 엔진, 모의 주문, 알림 기록 | #10, #12, #13, #14 |
 | #36 | feature/ai-realtime-anomaly | 룰 + LOF 실시간 이상탐지, 모델 비교 평가, `/anomalies` API | #11, #16, #17, #18, #19 |
 | #37 | feature/frontend-dashboard | 대시보드, 차트, 전략 설정 UI, 이상거래 경보, WebSocket·음성 알림 | #15, #23, #24, #25 |
-| (진행 중) | feature/timemachine | 과거 일봉(가상), 자동 백테스트, 직접 매매 세션, 결과 비교, 타임머신 화면 | #9, #20, #21, #22, #26 |
+| #38 | feature/timemachine | 과거 일봉(가상), 자동 백테스트, 직접 매매 세션, 결과 비교, 타임머신 화면 | #9, #20, #21, #22, #26 |
+| (진행 중) | feature/auth | 회원가입·로그인(JWT), 사용자별 데이터 분리, JWT 서명 키 Vault 보관 | #27 (#4 일부) |
 
 > #33의 Issue들(#1, #2, #5, #6, #28, #29)은 내용은 구현됐지만 PR 본문에 `closes`로 연결하지 않았을 수 있다. Issue 목록에서 열려 있으면 직접 닫아야 한다.
 
@@ -130,7 +131,7 @@ collector ──시세──> Kafka(stock.price) ──┬──> backend ──
                                          └──> ai ──> 이상탐지(룰 + LOF) ──> Kafka(stock.anomaly), Redis(anomalies, alerts)
 
 frontend(nginx) ──/api──> backend
-Vault: API 키 보관용 (컨테이너만 실행 중, 연동은 아직)
+Vault: JWT 서명 키 보관 (backend가 시작할 때 읽고, 없으면 만들어 저장). 키움 API 키 보관은 예정
 
 타임머신: backend가 PostgreSQL의 과거 일봉으로 백테스트·직접 매매 세션 처리 (세션 상태는 Redis)
           → 화면 구간의 이상거래 표시는 ai 컨테이너 /detect 호출
@@ -299,13 +300,13 @@ docker compose ps             # 8개가 모두 Up인지 확인
 
 - [ ] #3 키움 REST API 연결 테스트, `KiwoomSource` 구현 (실제 시세)
 - [ ] 키움 일봉 조회로 과거 시세 적재 (지금은 가상 일봉, `backend/app/history/`)
-- [ ] #4 Vault에 API 키 저장, 백엔드에서 불러오기
+- [ ] #4 Vault에 키움 API 키 저장, 백엔드에서 불러오기 (Vault 읽기·쓰기 코드는 `backend/app/auth/vault.py`에 있음, JWT 서명 키는 이미 Vault 사용)
 - [ ] 키움 모의투자 주문 API 연동 (지금은 자체 모의 체결)
 - [ ] 실제 시세로 AI 이상탐지 재평가
 
 ### 보안·검증
 
-- [ ] #27 사용자 인증(JWT) 및 API 접근 제어
+- [x] #27 사용자 인증(JWT) 및 API 접근 제어 (feature/auth PR)
 - [ ] #30 k6 부하 테스트 (워크플로로 추가하면 Actions 8개)
 - [ ] #31 전체 통합 테스트 및 버그 수정
 

@@ -16,6 +16,7 @@ class Strategy(Base):
     __tablename__ = "strategies"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int | None] = mapped_column(Integer, index=True, nullable=True)  # 전략 소유자
     name: Mapped[str] = mapped_column(String(100))
     symbol: Mapped[str] = mapped_column(String(20), index=True)
     side: Mapped[str] = mapped_column(String(4))  # buy | sell
@@ -32,6 +33,7 @@ class Order(Base):
     __tablename__ = "orders"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int | None] = mapped_column(Integer, index=True, nullable=True)
     strategy_id: Mapped[int | None] = mapped_column(ForeignKey("strategies.id", ondelete="SET NULL"), nullable=True)
     strategy_name: Mapped[str] = mapped_column(String(100))
     symbol: Mapped[str] = mapped_column(String(20), index=True)

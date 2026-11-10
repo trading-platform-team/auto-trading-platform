@@ -5,23 +5,29 @@
 """
 
 import asyncio
+import json
 import logging
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+
+from app.api.strategies import visible_to
+from app.auth.security import decode_token
 
 router = APIRouter()
 log = logging.getLogger("uvicorn.error")
 
 
 @router.websocket("/ws/alerts")
-async def alerts_ws(ws: WebSocket):
+async def alerts_ws(ws: WebSocket, token: str | None = None):
+    """?token=JWT 를 붙이면 내 주문 알림까지, 없으면 이상거래 알림만 받는다"""
+    user = decode_token(token) if token else None
     await ws.accept()
     pubsub = ws.app.state.redis.pubsub()
     await pubsub.subscribe("alerts")
 
     async def forward():
         async for msg in pubsub.listen():
-            if msg["type"] == "message":
+            if msg["type"] == "message" and visible_to(json.loads(msg["data"]), user):
                 await ws.send_text(msg["data"])
 
     async def wait_close():

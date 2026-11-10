@@ -12,6 +12,7 @@ from app.strategy.models import Order, Strategy
 class PaperBroker:
     def place(self, session: Session, strategy: Strategy, price: float, reason: dict) -> Order:
         order = Order(
+            user_id=strategy.user_id,
             strategy_id=strategy.id,
             strategy_name=strategy.name,
             symbol=strategy.symbol,

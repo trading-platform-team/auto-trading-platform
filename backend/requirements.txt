@@ -11,3 +11,4 @@ TA-Lib==0.6.8
 numpy==2.2.1
 sqlalchemy==2.0.36
 psycopg[binary]==3.2.3
+PyJWT==2.10.1

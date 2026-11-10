@@ -12,6 +12,8 @@ class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379/0"
     database_url: str = "postgresql://trader:change-me@localhost:5432/trading"
     vault_addr: str = "http://localhost:8200"
+    vault_token: str = "dev-root-token"
+    jwt_secret: str = ""  # Vault에 연결할 수 없을 때만 사용
     ai_service_url: str = "http://localhost:8001"
 
     # 시세 파이프라인

@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from contextlib import asynccontextmanager
 
 import redis.asyncio as aioredis
@@ -6,9 +7,12 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app import db
-from app.api import health, market, strategies, timemachine, ws
+from app.api import auth, health, market, strategies, timemachine, ws
+from app.auth import security, vault
 from app.core.config import settings
 from app.market.consumer import consume_forever
+
+log = logging.getLogger("uvicorn.error")
 
 
 def _seed_history() -> None:
@@ -26,6 +30,10 @@ async def lifespan(app: FastAPI):
         db.configure(settings.database_url)
     await asyncio.to_thread(db.init_db)
     await asyncio.to_thread(_seed_history)
+    if security._secret is None:  # 테스트에서는 미리 설정
+        secret, source = await asyncio.to_thread(vault.load_jwt_secret)
+        security.set_secret(secret)
+        log.info("JWT 서명 키 출처: %s", source)
     task = asyncio.create_task(consume_forever(app.state.redis)) if settings.enable_consumer else None
     yield
     if task:
@@ -33,7 +41,7 @@ async def lifespan(app: FastAPI):
     await app.state.redis.aclose()
 
 
-app = FastAPI(title="보조지표 기반 지능형 자동매매 플랫폼 API", version="0.5.0", lifespan=lifespan)
+app = FastAPI(title="보조지표 기반 지능형 자동매매 플랫폼 API", version="0.6.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -42,6 +50,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(auth.router)
 app.include_router(health.router)
 app.include_router(market.router)
 app.include_router(strategies.router)
