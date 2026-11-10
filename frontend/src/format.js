@@ -95,3 +95,19 @@ export function speechText(alert) {
   if (alert.type === 'anomaly') return `${alert.name} 이상거래 감지`
   return alert.message ?? ''
 }
+
+// 백엔드 조건 형식 → 폼 상태 (백테스트 프리셋 불러오기용)
+export function toFormCondition(c) {
+  return typeof c.right === 'number'
+    ? { left: c.left, op: c.op, rightType: 'number', rightValue: c.right, right: { name: 'SMA', period: 20 } }
+    : { left: c.left, op: c.op, rightType: 'indicator', rightValue: 30, right: c.right }
+}
+
+// 폼 조건 목록 → 백엔드 형식
+export function toApiConditions(conditions) {
+  return toStrategyPayload({ name: 'x', symbol: '', side: 'buy', quantity: 1, cooldown_sec: 0, conditions }).conditions
+}
+
+export const fmtPct = (n) => (n == null ? '-' : `${n > 0 ? '+' : ''}${Number(n).toFixed(2)}%`)
+export const pctClass = (n) => (n > 0 ? 'up' : n < 0 ? 'down' : '')
+export const fmtWon = (n) => (n == null ? '-' : `${Math.round(n).toLocaleString('ko-KR')}원`)

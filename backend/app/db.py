@@ -32,7 +32,8 @@ def configure(url: str) -> None:
 
 def init_db(retries: int = 30, delay: float = 2.0) -> None:
     """테이블 생성. PostgreSQL 컨테이너가 늦게 뜰 수 있어서 재시도한다."""
-    from app.strategy import models  # noqa: F401 - 테이블 등록
+    from app.history import models as _h  # noqa: F401 - 테이블 등록
+    from app.strategy import models  # noqa: F401
 
     for i in range(retries):
         try:

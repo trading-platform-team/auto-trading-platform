@@ -17,6 +17,17 @@
 
 실시간 시세·보조지표 차트, 전략 등록(조건 빌더·프리셋), 모의 주문 내역, AI 이상거래 경보, WebSocket 실시간 알림과 음성 알림(TTS)을 한 화면에서 제공합니다.
 
+### 타임머신 트레이딩
+
+| 직접 매매 | 결과 비교 | 자동 백테스트 |
+|---|---|---|
+| ![직접 매매](docs/images/timemachine-manual.png) | ![결과](docs/images/timemachine-result.png) | ![백테스트](docs/images/timemachine-backtest.png) |
+
+- **직접 매매**: 과거 날짜로 돌아가 그날까지의 차트만 보고 매수·매도. 하루씩 또는 자동 재생으로 시간을 진행하며, 미래 시세는 서버가 보내지 않아 미리 볼 수 없음. 차트에 그 시점까지의 이상거래(ai 컨테이너 탐지)를 표시
+- **결과 비교**: 종료하면 같은 기간의 단순 보유, 대표 전략 3개(골든크로스, RSI 역추세, 볼린저 반등)와 수익률·MDD 순위 비교
+- **자동 백테스트**: 매수·매도 조건(+ 익절·손절)으로 과거 기간을 시뮬레이션, 수익률·MDD·승률·자산 곡선·매매 지점 표시
+- 키움 일봉 연동 전까지는 **가상 과거 시세**(2023-01-02 ~ 2025-12-31, 상승·하락·횡보 구간 포함)로 동작
+
 ## 시스템 구성
 
 ```
@@ -103,6 +114,11 @@ npm run dev     # http://localhost:5173
 | GET | `/alerts` | 최근 알림 (주문 + 이상거래) |
 | GET | `/anomalies` | AI 이상거래 경보 ([설명](docs/anomaly-detection.md)) |
 | WS | `/ws/alerts` | 실시간 알림 (Redis Pub/Sub → WebSocket) |
+| GET | `/history/symbols`, `/history/{종목코드}` | 과거 일봉 (타임머신용) |
+| GET / POST | `/backtest/presets`, `/backtest` | 대표 전략 / 자동 백테스트 |
+| POST | `/timemachine/sessions` | 직접 매매 세션 시작 (과거 날짜로 이동) |
+| GET | `/timemachine/sessions/{id}` | 현재 날짜까지의 차트·계좌 |
+| POST | `/timemachine/sessions/{id}/step`, `/order`, `/finish` | 시간 진행 / 주문 / 종료 후 결과 비교 |
 
 전략 예시 (RSI가 30 아래이고 현재가가 볼린저밴드 하단을 뚫으면 10주 매수):
 

@@ -54,3 +54,20 @@ def snapshot(closes) -> dict:
         "bb_upper": last(compute("BB_UPPER", closes)),
         "bb_lower": last(compute("BB_LOWER", closes)),
     }
+
+
+def chart_series(closes) -> dict[str, np.ndarray]:
+    """차트에 그리는 지표 묶음 (실시간 차트·타임머신·백테스트 공용)"""
+    closes = np.asarray(closes, dtype=float)
+    return {
+        "sma5": compute("SMA", closes, 5),
+        "sma20": compute("SMA", closes, 20),
+        "bb_upper": compute("BB_UPPER", closes),
+        "bb_lower": compute("BB_LOWER", closes),
+        "rsi": compute("RSI", closes, 14),
+    }
+
+
+def clean(v) -> float | None:
+    v = float(v)
+    return None if np.isnan(v) else round(v, 2)
