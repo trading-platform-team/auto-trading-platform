@@ -15,7 +15,7 @@
 |---|---|---|
 | 컨테이너 3종 이상 | frontend, backend, collector, ai, kafka, redis, postgres, vault (8종) | 완료 |
 | 컨테이너 간 통신 | collector → kafka → backend → redis 시세 파이프라인, frontend(nginx) → backend, `/health/deps`·`/market/prices`로 확인 | 완료 |
-| 볼륨 활용 | pg-data(전략·주문), redis-data, kafka-data, ai-models(학습된 LOF 모델) | 완료 |
+| 볼륨 활용 | pg-data(전략·주문·과거 일봉), redis-data(시세 캐시·타임머신 세션), kafka-data, ai-models(학습된 LOF 모델) | 완료 |
 | (선택) Kubernetes | 시간 여유 시 k8s 매니페스트 추가 | 미정 |
 
 ## 3. 수업 외 오픈소스 (언어·DB 제외)
@@ -39,6 +39,6 @@
 | 3 | frontend-test.yml | vitest 단위 테스트 + 빌드 |
 | 4 | lint.yml | ruff 파이썬 코드 검사 |
 | 5 | docker-build.yml | compose 문법 검사 + 이미지 빌드 |
-| 6 | integration-test.yml | 전체 컨테이너 실행 후 컨테이너 간 통신·시세 파이프라인·자동매매 주문·AI 이상탐지 테스트 |
+| 6 | integration-test.yml | 전체 컨테이너 실행 후 컨테이너 간 통신·시세 파이프라인·자동매매 주문·AI 이상탐지·타임머신(백테스트, 직접 매매) 테스트 |
 | 7 | secret-scan.yml | gitleaks로 API 키 유출 검사 |
 | 8 | (예정) load-test.yml | k6 부하 테스트 |

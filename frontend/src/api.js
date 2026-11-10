@@ -25,6 +25,15 @@ export const api = {
   orders: (limit = 30) => request(`/orders?limit=${limit}`),
   alerts: (limit = 30) => request(`/alerts?limit=${limit}`),
   anomalies: (limit = 30) => request(`/anomalies?limit=${limit}`),
+  // 타임머신
+  historySymbols: () => request('/history/symbols'),
+  backtestPresets: () => request('/backtest/presets'),
+  backtest: (body) => request('/backtest', { method: 'POST', body: JSON.stringify(body) }),
+  tmCreate: (body) => request('/timemachine/sessions', { method: 'POST', body: JSON.stringify(body) }),
+  tmStep: (id, days = 1) => request(`/timemachine/sessions/${id}/step`, { method: 'POST', body: JSON.stringify({ days }) }),
+  tmOrder: (id, side, quantity) =>
+    request(`/timemachine/sessions/${id}/order`, { method: 'POST', body: JSON.stringify({ side, quantity }) }),
+  tmFinish: (id) => request(`/timemachine/sessions/${id}/finish`, { method: 'POST' }),
 }
 
 export function alertsSocketUrl() {

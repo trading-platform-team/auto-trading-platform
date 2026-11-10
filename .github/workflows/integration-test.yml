@@ -58,6 +58,19 @@ jobs:
           done
           echo "이상탐지 경보가 생성되지 않음"; docker compose logs ai | tail -50; exit 1
 
+      - name: 타임머신 확인 (과거 시세 → 백테스트, 직접 매매 세션 → ai 이상거래 표시)
+        run: |
+          curl -sf http://localhost:8000/history/symbols | grep -q '"count"'
+          presets=$(curl -sf http://localhost:8000/backtest/presets)
+          body=$(echo "$presets" | python3 -c "import sys,json;p=json.load(sys.stdin)[0];print(json.dumps({'symbol':'005930','start':'2024-01-02','buy_conditions':p['buy_conditions'],'sell_conditions':p['sell_conditions']}))")
+          curl -sf -X POST http://localhost:8000/backtest -H "Content-Type: application/json" -d "$body" | grep -q '"total_return_pct"'
+          sid=$(curl -sf -X POST http://localhost:8000/timemachine/sessions -H "Content-Type: application/json" \
+                -d '{"symbol":"005380","start_date":"2024-03-04"}' | python3 -c "import sys,json;print(json.load(sys.stdin)['id'])")
+          curl -sf -X POST http://localhost:8000/timemachine/sessions/$sid/order -H "Content-Type: application/json" -d '{"side":"buy","quantity":3}' > /dev/null
+          curl -sf -X POST http://localhost:8000/timemachine/sessions/$sid/step -H "Content-Type: application/json" -d '{"days":30}' \
+            | python3 -c "import sys,json;v=json.load(sys.stdin);print(v['date'],'anomalies',len(v['anomalies']));assert v['days_passed']==30"
+          curl -sf -X POST http://localhost:8000/timemachine/sessions/$sid/finish | grep -q '"ranking"'
+
       - name: frontend → backend 프록시 확인
         run: curl -sf http://localhost:3000/api/health
 

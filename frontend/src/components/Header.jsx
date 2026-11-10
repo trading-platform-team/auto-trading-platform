@@ -3,7 +3,7 @@ import { usePolling } from '../hooks.js'
 
 const LABEL = { kafka: 'Kafka', redis: 'Redis', postgres: 'DB', vault: 'Vault', ai: 'AI' }
 
-export default function Header({ voice, onToggleVoice, wsConnected }) {
+export default function Header({ voice, onToggleVoice, wsConnected, page, onPage }) {
   const { data } = usePolling(api.health, 5000)
   const deps = data?.deps ?? {}
 
@@ -16,6 +16,14 @@ export default function Header({ voice, onToggleVoice, wsConnected }) {
           <p>보조지표 전략 자동 실행 · AI 이상거래 탐지 · 모의투자</p>
         </div>
       </div>
+      <nav className="tabs">
+        <button className={page === 'live' ? 'on' : ''} onClick={() => onPage('live')}>
+          실시간 자동매매
+        </button>
+        <button className={page === 'timemachine' ? 'on' : ''} onClick={() => onPage('timemachine')}>
+          타임머신 트레이딩
+        </button>
+      </nav>
       <div className="header-right">
         <div className="status-chips">
           {Object.keys(LABEL).map((k) => (

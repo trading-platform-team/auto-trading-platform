@@ -7,6 +7,7 @@ import OrderTable from './components/OrderTable.jsx'
 import PriceChart from './components/PriceChart.jsx'
 import PriceTable from './components/PriceTable.jsx'
 import StrategyPanel from './components/StrategyPanel.jsx'
+import TimeMachinePage from './components/timemachine/TimeMachinePage.jsx'
 import { speechText } from './format.js'
 import { useAlertSocket, usePolling } from './hooks.js'
 
@@ -19,6 +20,7 @@ function speak(text) {
 }
 
 export default function App() {
+  const [page, setPage] = useState('live')
   const [selected, setSelected] = useState('005930')
   const [voice, setVoice] = useState(false)
   const [alerts, setAlerts] = useState([])
@@ -49,7 +51,12 @@ export default function App() {
 
   return (
     <div className="app">
-      <Header voice={voice} onToggleVoice={() => setVoice((v) => !v)} wsConnected={wsConnected} />
+      <Header voice={voice} onToggleVoice={() => setVoice((v) => !v)} wsConnected={wsConnected} page={page} onPage={setPage} />
+      {page === 'timemachine' ? (
+        <main className="tm-main">
+          <TimeMachinePage />
+        </main>
+      ) : (
       <main className="grid">
         <div className="col-left">
           <PriceTable selected={selected} onSelect={setSelected} anomalySymbols={recentAnomalySymbols} />
@@ -64,6 +71,7 @@ export default function App() {
           <AnomalyPanel anomalies={anomalies} onSelect={setSelected} />
         </div>
       </main>
+      )}
     </div>
   )
 }
