@@ -4,7 +4,7 @@ import { fmtNum } from '../format.js'
 import { usePolling } from '../hooks.js'
 
 // 실시간 시세 표. 행을 누르면 차트 종목이 바뀐다.
-export default function PriceTable({ selected, onSelect, anomalySymbols }) {
+export default function PriceTable({ selected, onSelect, anomalySymbols, beginner = false }) {
   const { data } = usePolling(api.prices, 1000)
   const prev = useRef({})
   const base = useRef({})
@@ -20,7 +20,7 @@ export default function PriceTable({ selected, onSelect, anomalySymbols }) {
   prev.current = Object.fromEntries(prices.map((p) => [p.symbol, p.price]))
 
   return (
-    <section className="card">
+    <section className="card" data-explain={beginner ? 'realtimePrice' : undefined}>
       <div className="card-head">
         <h2>실시간 시세</h2>
         <span className="muted">모의 시세 · 1초 갱신</span>
@@ -32,9 +32,9 @@ export default function PriceTable({ selected, onSelect, anomalySymbols }) {
           <thead>
             <tr>
               <th>종목</th>
-              <th className="r">현재가</th>
-              <th className="r">등락</th>
-              <th className="r">거래량</th>
+              <th className="r" data-explain={beginner ? 'price' : undefined}>현재가</th>
+              <th className="r" data-explain={beginner ? 'change' : undefined}>등락</th>
+              <th className="r" data-explain={beginner ? 'volume' : undefined}>거래량</th>
             </tr>
           </thead>
           <tbody>

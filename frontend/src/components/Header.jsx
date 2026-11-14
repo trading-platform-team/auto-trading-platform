@@ -20,6 +20,9 @@ export default function Header({ voice, onToggleVoice, wsConnected, page, onPage
         <button className={page === 'live' ? 'on' : ''} onClick={() => onPage('live')}>
           실시간 자동매매
         </button>
+        <button className={page === 'beginner' ? 'on' : ''} onClick={() => onPage('beginner')}>
+          🌱 초보자 쉬운 모드
+        </button>
         <button className={page === 'timemachine' ? 'on' : ''} onClick={() => onPage('timemachine')}>
           타임머신 트레이딩
         </button>

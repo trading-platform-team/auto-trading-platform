@@ -4,7 +4,9 @@ import { conditionLabel, PRESETS, toStrategyPayload } from '../format.js'
 import { ConditionList, emptyCond } from './ConditionEditor.jsx'
 import { usePolling } from '../hooks.js'
 
-export default function StrategyPanel({ symbols, selected }) {
+const PRESET_HELP = ['presetRsiBuy', 'presetGoldenCross', 'presetBollingerBuy', 'presetRsiSell']
+
+export default function StrategyPanel({ symbols, selected, beginner = false }) {
   const [tick, setTick] = useState(0)
   const { data: strategies } = usePolling(api.strategies, 5000, [tick])
   const refresh = () => setTick((t) => t + 1)
@@ -37,38 +39,38 @@ export default function StrategyPanel({ symbols, selected }) {
   const nameOf = (code) => symbols.find((s) => s.symbol === code)?.name ?? code
 
   return (
-    <section className="card">
+    <section className="card" data-explain={beginner ? 'strategy' : undefined}>
       <div className="card-head">
         <h2>자동매매 전략</h2>
       </div>
 
       <div className="presets">
-        <span className="muted">빠른 선택</span>
-        {PRESETS.map((p) => (
-          <button key={p.name} className="btn btn-ghost" onClick={() => applyPreset(p)}>{p.name}</button>
+        <span className="muted">{beginner ? '쉬운 전략 선택' : '빠른 선택'}</span>
+        {PRESETS.map((p, i) => (
+          <button key={p.name} className="btn btn-ghost" data-explain={beginner ? PRESET_HELP[i] : undefined} onClick={() => applyPreset(p)}>{p.name}</button>
         ))}
       </div>
 
       <form className="strategy-form" onSubmit={submit}>
         <div className="form-grid">
-          <label className="wide">이름<input value={form.name} placeholder="내 전략" onChange={(e) => set({ name: e.target.value })} /></label>
-          <label>종목
+          <label className="wide" data-explain={beginner ? 'strategyName' : undefined}>이름<input value={form.name} placeholder="내 전략" onChange={(e) => set({ name: e.target.value })} /></label>
+          <label data-explain={beginner ? 'symbol' : undefined}>종목
             <select value={form.symbol} onChange={(e) => set({ symbol: e.target.value })}>
               {symbols.map((s) => <option key={s.symbol} value={s.symbol}>{s.name}</option>)}
             </select>
           </label>
-          <label>매매
+          <label data-explain={beginner ? 'tradeSide' : undefined}>매매
             <select value={form.side} onChange={(e) => set({ side: e.target.value })}>
               <option value="buy">매수</option>
               <option value="sell">매도</option>
             </select>
           </label>
-          <label>수량<input type="number" min={1} value={form.quantity} onChange={(e) => set({ quantity: e.target.value })} /></label>
-          <label>쿨다운(초)<input type="number" min={0} value={form.cooldown_sec} onChange={(e) => set({ cooldown_sec: e.target.value })} /></label>
+          <label data-explain={beginner ? 'quantity' : undefined}>수량<input type="number" min={1} value={form.quantity} onChange={(e) => set({ quantity: e.target.value })} /></label>
+          <label data-explain={beginner ? 'cooldown' : undefined}>쿨다운(초)<input type="number" min={0} value={form.cooldown_sec} onChange={(e) => set({ cooldown_sec: e.target.value })} /></label>
         </div>
 
-        <p className="muted small">조건 (모두 만족하면 주문)</p>
-        <ConditionList conditions={form.conditions} onChange={(conditions) => set({ conditions })} />
+        <p className="muted small" data-explain={beginner ? 'condition' : undefined}>조건 (모두 만족하면 주문)</p>
+        <div data-explain={beginner ? 'condition' : undefined}><ConditionList conditions={form.conditions} onChange={(conditions) => set({ conditions })} beginner={beginner} /></div>
         <div className="form-actions">
           <span />
           <button type="submit" className="btn btn-primary">전략 등록</button>

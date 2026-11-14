@@ -1,8 +1,8 @@
 import { fmtTime } from '../format.js'
 
-export default function AlertFeed({ alerts }) {
+export default function AlertFeed({ alerts, beginner = false }) {
   return (
-    <section className="card">
+    <section className="card" data-explain={beginner ? 'alerts' : undefined}>
       <div className="card-head">
         <h2>실시간 알림</h2>
         <span className="muted">주문 · 이상거래</span>

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { api, auth } from './api.js'
 import AlertFeed from './components/AlertFeed.jsx'
 import AnomalyPanel from './components/AnomalyPanel.jsx'
+import BeginnerMode from './components/BeginnerMode.jsx'
 import Header from './components/Header.jsx'
 import LoginScreen from './components/LoginScreen.jsx'
 import OrderTable from './components/OrderTable.jsx'
@@ -71,6 +72,9 @@ function Dashboard({ username }) {
         <main className="tm-main">
           <TimeMachinePage />
         </main>
+      ) : page === 'beginner' ? (
+        <BeginnerMode symbols={symbols} selected={selected} onSelected={setSelected} selectedName={selectedName}
+          anomalySymbols={recentAnomalySymbols} alerts={alerts} anomalies={anomalies} />
       ) : (
       <main className="grid">
         <div className="col-left">

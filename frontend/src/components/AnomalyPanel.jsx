@@ -1,11 +1,11 @@
 import { fmtNum, fmtTime } from '../format.js'
 
-export default function AnomalyPanel({ anomalies, onSelect }) {
+export default function AnomalyPanel({ anomalies, onSelect, beginner = false }) {
   return (
-    <section className="card">
+    <section className="card" data-explain={beginner ? 'anomaly' : undefined}>
       <div className="card-head">
         <h2>AI 이상거래 탐지</h2>
-        <span className="muted">룰 + LOF 모델</span>
+        <span className="muted" data-explain={beginner ? 'lof' : undefined}>룰 + LOF 모델</span>
       </div>
       {anomalies.length === 0 ? (
         <p className="empty">감지된 이상 징후가 없어요 (모델은 종목별 100건 학습 후 동작)</p>
