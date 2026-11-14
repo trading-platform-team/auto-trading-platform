@@ -7,42 +7,42 @@ import { usePolling } from '../hooks.js'
 
 const C = { price: '#e8ecf1', sma5: '#f5b041', sma20: '#5dade2', band: '#8e7cc3', rsi: '#58d68d' }
 
-function Legend() {
+function Legend({ beginner }) {
   return (
     <div className="legend">
-      <span style={{ color: C.price }}>━ 현재가</span>
-      <span style={{ color: C.sma5 }}>━ SMA5</span>
-      <span style={{ color: C.sma20 }}>━ SMA20</span>
-      <span style={{ color: C.band }}>▒ 볼린저밴드(20,2)</span>
+      <span data-explain={beginner ? 'price' : undefined} style={{ color: C.price }}>━ 현재가</span>
+      <span data-explain={beginner ? 'sma5' : undefined} style={{ color: C.sma5 }}>━ {beginner ? '최근 5개 평균선' : 'SMA5'}</span>
+      <span data-explain={beginner ? 'sma20' : undefined} style={{ color: C.sma20 }}>━ {beginner ? '최근 20개 평균선' : 'SMA20'}</span>
+      <span data-explain={beginner ? 'bollinger' : undefined} style={{ color: C.band }}>▒ {beginner ? '평소 가격 범위' : '볼린저밴드(20,2)'}</span>
     </div>
   )
 }
 
-export default function PriceChart({ symbol, name }) {
+export default function PriceChart({ symbol, name, beginner = false }) {
   const { data } = usePolling(() => api.chart(symbol, 150), 2000, [symbol])
   const { data: ind } = usePolling(() => api.indicators(symbol), 2000, [symbol])
   const rows = (data ?? []).map((r) => ({ ...r, band: r.bb_upper && r.bb_lower ? [r.bb_lower, r.bb_upper] : null }))
 
   const cards = [
     ['현재가', fmtNum(ind?.price)],
-    ['SMA5', fmtNum(ind?.sma5)],
-    ['SMA20', fmtNum(ind?.sma20)],
-    ['RSI(14)', ind?.rsi14 ?? '-', ind?.rsi14 > 70 ? 'up' : ind?.rsi14 < 30 ? 'down' : ''],
-    ['BB 상단', fmtNum(ind?.bb_upper)],
-    ['BB 하단', fmtNum(ind?.bb_lower)],
+    [beginner ? '5개 평균' : 'SMA5', fmtNum(ind?.sma5), '', 'sma5'],
+    [beginner ? '20개 평균' : 'SMA20', fmtNum(ind?.sma20), '', 'sma20'],
+    [beginner ? '과열 정도' : 'RSI(14)', ind?.rsi14 ?? '-', ind?.rsi14 > 70 ? 'up' : ind?.rsi14 < 30 ? 'down' : '', 'rsi'],
+    [beginner ? '평소 범위 위' : 'BB 상단', fmtNum(ind?.bb_upper), '', 'bollinger'],
+    [beginner ? '평소 범위 아래' : 'BB 하단', fmtNum(ind?.bb_lower), '', 'bollinger'],
   ]
 
   return (
-    <section className="card">
+    <section className="card" data-explain={beginner ? 'chart' : undefined}>
       <div className="card-head">
         <h2>
           {name ?? symbol} <small className="muted">{symbol}</small>
         </h2>
-        <Legend />
+        <Legend beginner={beginner} />
       </div>
       <div className="ind-cards">
-        {cards.map(([k, v, cls]) => (
-          <div key={k} className="ind-card">
+        {cards.map(([k, v, cls, cardHelp]) => (
+          <div key={k} className="ind-card" data-explain={beginner ? (cardHelp ?? 'price') : undefined}>
             <span>{k}</span>
             <b className={cls}>{v}</b>
           </div>
