@@ -9,11 +9,12 @@ const tip = { background: '#151a22', border: '1px solid #2a313d' }
 const short = (d) => d?.slice(2) // 2024-06-03 → 24-06-03
 
 // 일봉 차트: 종가 + SMA5·SMA20 + 볼린저밴드, 매매 표시, 이상거래 표시, RSI
-export default function DailyChart({ rows, points = [], anomalies = [], height = 280 }) {
+export default function DailyChart({ rows, points = [], anomalies = [], events = [], height = 280 }) {
   const data = rows.map((r) => ({ ...r, band: r.bb_upper && r.bb_lower ? [r.bb_lower, r.bb_upper] : null }))
   const dates = new Set(data.map((r) => r.date))
   const byDate = Object.fromEntries(data.map((r) => [r.date, r]))
   const anomalyDates = [...new Set(anomalies.map((a) => a.timestamp))].filter((d) => dates.has(d))
+  const eventDates = [...new Set(events.map((event) => event.date))].filter((d) => dates.has(d))
 
   return (
     <>
@@ -25,6 +26,7 @@ export default function DailyChart({ rows, points = [], anomalies = [], height =
         <span className="up">▲ 매수</span>
         <span className="down">▼ 매도</span>
         <span style={{ color: '#f5a623' }}>● AI·룰 이상거래</span>
+        <span style={{ color: '#b9afff' }}>◆ 뉴스·주요 사건</span>
       </div>
       <ResponsiveContainer width="100%" height={height}>
         <ComposedChart data={data} margin={{ top: 10, right: 8, left: 0, bottom: 0 }}>
@@ -38,6 +40,17 @@ export default function DailyChart({ rows, points = [], anomalies = [], height =
           <Line dataKey="close" name="종가" stroke={C.price} dot={false} strokeWidth={2} isAnimationActive={false} />
           {anomalyDates.map((d) => (
             <ReferenceDot key={`a-${d}`} x={d} y={byDate[d].close} r={6} fill="none" stroke="#f5a623" strokeWidth={2} />
+          ))}
+          {eventDates.map((d) => (
+            <ReferenceDot
+              key={`e-${d}`}
+              x={d}
+              y={byDate[d].close}
+              r={6}
+              fill="#7c6cf2"
+              stroke="#d7d1ff"
+              label={{ value: '◆', position: 'top', fill: '#b9afff', fontSize: 12 }}
+            />
           ))}
           {points
             .filter((p) => dates.has(p.date))
