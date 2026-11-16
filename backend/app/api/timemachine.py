@@ -14,6 +14,7 @@ from app.backtest.engine import run_backtest
 from app.backtest.presets import PRESETS
 from app.core.config import settings
 from app.db import get_session
+from app.history.events import load_events
 from app.history.service import load_bars, symbols_summary
 from app.market.sources import DEFAULT_SYMBOLS
 from app.strategy.indicators import chart_series, clean
@@ -41,6 +42,14 @@ def _name(symbol: str) -> str:
 def history_symbols(s: SessionDep):
     """과거 시세가 있는 종목과 기간"""
     return symbols_summary(s)
+
+
+@router.get("/history/{symbol}/events")
+def history_events(symbol: str, start: date | None = None, end: date | None = None):
+    """공식 발표를 바탕으로 정리한 종목·시장 주요 사건"""
+    if start and end and start > end:
+        raise HTTPException(422, "시작일은 종료일보다 늦을 수 없습니다")
+    return load_events(symbol, start, end)
 
 
 @router.get("/history/{symbol}")
@@ -132,6 +141,11 @@ async def _anomaly_marks(chart: list[dict]) -> list[dict]:
 async def _view(st: dict, bars: list[dict]) -> dict:
     v = tm.view(st, bars)
     v["anomalies"] = await _anomaly_marks(v["chart"])
+    v["events"] = load_events(
+        st["symbol"],
+        date.fromisoformat(v["chart"][0]["date"]),
+        date.fromisoformat(v["date"]),
+    )
     return v
 
 

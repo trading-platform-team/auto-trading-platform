@@ -4,11 +4,9 @@ import './edu.css'
 import Glossary from './Glossary.jsx'
 import LearningPath from './LearningPath.jsx'
 import LessonPlayer from './LessonPlayer.jsx'
-import Practice from './Practice.jsx'
 
 const TABS = [
   ['path', '📚 학습'],
-  ['practice', '💰 연습 매매'],
   ['glossary', '📖 용어 사전'],
   ['badges', '🏅 배지'],
 ]
@@ -34,20 +32,12 @@ export default function EducationPage({ onNavigate }) {
   const [progress, setProgress] = useState(null)
   const [tab, setTab] = useState('path')
   const [lesson, setLesson] = useState(null)
-  const [toast, setToast] = useState(null)
   const [error, setError] = useState(null)
 
   const load = useCallback(() => api.eduProgress().then(setProgress).catch((e) => setError(e.message)), [])
   useEffect(() => {
     load()
   }, [load])
-
-  const showBadges = (ids) => {
-    const names = Object.fromEntries((progress?.badges ?? []).map((b) => [b.id, b.name]))
-    setToast(`🏅 새 배지: ${ids.map((i) => names[i] ?? i).join(', ')}`)
-    setTimeout(() => setToast(null), 4000)
-    load()
-  }
 
   if (error) return <p className="msg-err">{error}</p>
   if (!progress) return <p className="empty">학습 정보 불러오는 중...</p>
@@ -80,7 +70,6 @@ export default function EducationPage({ onNavigate }) {
       </div>
 
       {tab === 'path' && <LearningPath progress={progress} onStart={setLesson} onGo={onNavigate} />}
-      {tab === 'practice' && <Practice onBadge={showBadges} />}
       {tab === 'glossary' && <Glossary completed={completed} />}
       {tab === 'badges' && (
         <div className="badges">
@@ -93,7 +82,6 @@ export default function EducationPage({ onNavigate }) {
           ))}
         </div>
       )}
-      {toast && <div className="toast">{toast}</div>}
     </div>
   )
 }

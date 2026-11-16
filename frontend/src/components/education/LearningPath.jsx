@@ -14,8 +14,8 @@ export default function LearningPath({ progress, onStart, onGo }) {
           </div>
           {onGo && (
             <div className="grad-actions">
-              <button className="btn" onClick={() => onGo('timemachine')}>타임머신 백테스트</button>
-              <button className="btn btn-primary" onClick={() => onGo('live')}>실시간 자동매매</button>
+              <button className="btn" onClick={() => onGo('timemachine')}>타임머신에서 검증</button>
+              <button className="btn btn-primary" onClick={() => onGo('paper')}>모의투자에서 운영</button>
             </div>
           )}
         </div>

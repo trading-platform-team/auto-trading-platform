@@ -1,11 +1,13 @@
 import { api, auth } from '../api.js'
 import { usePolling } from '../hooks.js'
+import { PAGE_INFO, PAGES } from '../navigation.js'
 
 const LABEL = { kafka: 'Kafka', redis: 'Redis', postgres: 'DB', vault: 'Vault', ai: 'AI' }
 
 export default function Header({ voice, onToggleVoice, wsConnected, page, onPage, username }) {
   const { data } = usePolling(api.health, 5000)
   const deps = data?.deps ?? {}
+  const current = PAGE_INFO[page] ?? PAGE_INFO.education
 
   return (
     <header className="header">
@@ -17,20 +19,16 @@ export default function Header({ voice, onToggleVoice, wsConnected, page, onPage
         </div>
       </div>
       <nav className="tabs">
-        <button className={page === 'edu' ? 'on' : ''} onClick={() => onPage('edu')}>
-          📚 교육
-        </button>
-        <button className={page === 'live' ? 'on' : ''} onClick={() => onPage('live')}>
-          실시간 자동매매
-        </button>
-        <button className={page === 'beginner' ? 'on' : ''} onClick={() => onPage('beginner')}>
-          🌱 초보자 쉬운 모드
-        </button>
-        <button className={page === 'timemachine' ? 'on' : ''} onClick={() => onPage('timemachine')}>
-          타임머신 트레이딩
-        </button>
+        {PAGES.map((item) => (
+          <button key={item.id} className={page === item.id ? 'on' : ''} onClick={() => onPage(item.id)}>
+            <small>{item.eyebrow}</small><span>{item.title}</span>
+          </button>
+        ))}
       </nav>
       <div className="header-right">
+        <div className="mode-chip" title={current.description}>
+          <small>{current.eyebrow}</small><b>{current.title}</b>
+        </div>
         <div className="status-chips">
           {Object.keys(LABEL).map((k) => (
             <span key={k} className={`chip ${deps[k] ? 'ok' : 'bad'}`} title={deps[k] ? '연결됨' : '연결 안 됨'}>

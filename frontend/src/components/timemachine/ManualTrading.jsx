@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { api } from '../../api.js'
 import { fmtNum, fmtPct, fmtWon, pctClass } from '../../format.js'
 import DailyChart, { EquityChart } from './DailyChart.jsx'
+import MarketEvents from './MarketEvents.jsx'
 
 const SPEEDS = [
   { label: '1일/초', ms: 1000 },
@@ -165,7 +166,8 @@ export default function ManualTrading({ symbols }) {
 
       <div className="tm-grid">
         <section className="card">
-          <DailyChart rows={view.chart} points={points} anomalies={view.anomalies} />
+          <DailyChart rows={view.chart} points={points} anomalies={view.anomalies} events={view.events} />
+          <MarketEvents events={view.events} currentDate={view.date} />
         </section>
 
         <div className="tm-side">

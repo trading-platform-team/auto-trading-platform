@@ -115,16 +115,16 @@ export function DeployCard({ card, onCheck, onPredict, locked }) {
     try {
       await api.createStrategy({ ...s, enabled: true })
       setState('ok')
-      onPredict?.({ hit: true, text: '등록 완료! 상단 **실시간 자동매매** 탭의 전략 목록에서 확인할 수 있어요. 조건이 맞으면 모의 주문이 실행되고 실시간 알림이 와요. 언제든 끄거나 삭제할 수 있어요.' })
+      onPredict?.({ hit: true, text: '등록 완료! 상단 **모의투자 → 🌱 초보자 자동매매** 화면의 전략 목록에서 확인할 수 있어요. 조건이 맞으면 모의 주문이 실행되고 실시간 알림이 와요. 언제든 끄거나 삭제할 수 있어요.' })
     } catch (e) {
       setState('err')
-      onPredict?.({ hit: false, text: `등록하지 못했어요 (${e.message}). 나중에 실시간 자동매매 화면에서 직접 만들어도 돼요.` })
+      onPredict?.({ hit: false, text: `등록하지 못했어요 (${e.message}). 나중에 모의투자 → 초보자 자동매매 화면에서 직접 만들어도 돼요.` })
     }
     onCheck(null)
   }
   const skip = () => {
     setState('skip')
-    onPredict?.({ hit: true, text: '나중에 **실시간 자동매매** 화면에서 배운 대로 직접 만들어 보세요!' })
+    onPredict?.({ hit: true, text: '나중에 **모의투자 → 🌱 초보자 자동매매** 화면에서 배운 대로 직접 만들어 보세요!' })
     onCheck(null)
   }
   return (
@@ -142,7 +142,7 @@ export function DeployCard({ card, onCheck, onPredict, locked }) {
       </div>
       {!locked && !state && (
         <div className="ox">
-          <button className="btn btn-primary big" onClick={deploy}>실시간 자동매매에 등록</button>
+          <button className="btn btn-primary big" onClick={deploy}>모의투자 자동매매에 등록</button>
           <button className="btn big" onClick={skip}>나중에 할게요</button>
         </div>
       )}

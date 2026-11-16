@@ -3,6 +3,7 @@ import { api } from '../../api.js'
 import { fmtNum, fmtPct, fmtWon, pctClass, toApiConditions, toFormCondition } from '../../format.js'
 import { ConditionList, emptyCond } from '../ConditionEditor.jsx'
 import DailyChart, { EquityChart } from './DailyChart.jsx'
+import MarketEvents from './MarketEvents.jsx'
 
 function Metric({ label, value, cls = '' }) {
   return (
@@ -28,6 +29,7 @@ export default function Backtest({ symbols }) {
   const [result, setResult] = useState(null)
   const [err, setErr] = useState(null)
   const [loading, setLoading] = useState(false)
+  const [events, setEvents] = useState([])
   const set = (patch) => setForm((f) => ({ ...f, ...patch }))
 
   useEffect(() => {
@@ -42,8 +44,7 @@ export default function Backtest({ symbols }) {
     setErr(null)
     try {
       const num = (v) => (v === '' ? null : Number(v))
-      setResult(
-        await api.backtest({
+      const nextResult = await api.backtest({
           symbol: form.symbol,
           start: form.start,
           end: form.end || null,
@@ -52,8 +53,9 @@ export default function Backtest({ symbols }) {
           stop_loss_pct: num(form.stop_loss_pct),
           buy_conditions: toApiConditions(form.buy),
           sell_conditions: toApiConditions(form.sell),
-        }),
-      )
+        })
+      setResult(nextResult)
+      setEvents(await api.historyEvents(form.symbol, form.start, form.end || undefined))
     } catch (e) {
       setErr(e.message)
     } finally {
@@ -143,7 +145,8 @@ export default function Backtest({ symbols }) {
               <Metric label="최종 자산" value={fmtWon(m.final_equity)} />
             </div>
             <EquityChart rows={result.equity} label="전략 자산" />
-            <DailyChart rows={result.chart} points={result.points} height={220} />
+            <DailyChart rows={result.chart} points={result.points} events={events} height={220} />
+            <MarketEvents events={events} currentDate={form.end || result.chart.at(-1)?.date} />
             <div className="scroll">
               <table className="table">
                 <thead>
