@@ -1,8 +1,31 @@
 import { LESSONS } from './content/index.js'
 
-export default function LearningPath({ progress, onStart }) {
+export default function LearningPath({ progress, onStart, onGo }) {
+  const all = progress.units.flatMap((u) => u.lessons)
+  const done = all.filter((l) => l.stars).length
   return (
     <div className="path">
+      {done === all.length ? (
+        <div className="graduate">
+          <div className="grad-icon">🎓</div>
+          <div>
+            <b>교육 과정 수료!</b>
+            <p className="muted small">레슨 {all.length}개를 모두 마쳤어요. 이제 실제 화면에서 전략을 검증하고 운영해 보세요.</p>
+          </div>
+          {onGo && (
+            <div className="grad-actions">
+              <button className="btn" onClick={() => onGo('timemachine')}>타임머신에서 검증</button>
+              <button className="btn btn-primary" onClick={() => onGo('paper')}>모의투자에서 운영</button>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="course-progress">
+          <span>교육 과정 진행률</span>
+          <div className="lesson-progress"><i style={{ width: `${(done / all.length) * 100}%` }} /></div>
+          <b>{done}/{all.length}</b>
+        </div>
+      )}
       {progress.units.map((u, ui) => {
         const unitLocked = !u.lessons[0].unlocked
         return (

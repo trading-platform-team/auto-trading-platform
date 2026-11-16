@@ -60,7 +60,7 @@ export default function Practice({ onBadge }) {
           <div className="ind-card"><span>수익률</span><b className={pctClass(account.return_pct)}>{fmtPct(account.return_pct)}</b></div>
           <div className="ind-card"><span>현금</span><b>{fmtWon(account.cash)}</b></div>
         </div>
-        <p className="muted small">가상머니 {fmtWon(account.initial_cash)}로 시작 · 모의투자 페이지 계좌와는 별개 · 실시간 모의 시세로 체결 · 수수료 0.015%</p>
+        <p className="muted small">가상머니 {fmtWon(account.initial_cash)}로 시작 · 실제 돈은 쓰이지 않아요 · 실시간 모의 시세로 체결 · 수수료 0.015%</p>
 
         <h4>보유 종목</h4>
         {account.positions.length === 0 ? (

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { api } from '../../api.js'
 import { checkInput, parseBold } from './engine.js'
+import { BuildCard, DeployCard, SliderCard } from './BuildCards.jsx'
 import DuelCard from './DuelCard.jsx'
 import SpotCard from './SpotCard.jsx'
 import Visual, { MiniCandles, MiniLine } from './Visuals.jsx'
@@ -226,4 +227,7 @@ export const CARD_COMPONENTS = {
   predict: PredictCard,
   spot: SpotCard,
   duel: DuelCard,
+  slider: SliderCard,
+  build: BuildCard,
+  deploy: DeployCard,
 }

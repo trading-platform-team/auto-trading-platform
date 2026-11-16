@@ -38,7 +38,7 @@ def test_unlock_order_and_xp(sqlite_db):
         lesson = again["units"][0]["lessons"][0]
         assert lesson["stars"] == 3 and again["units"][0]["lessons"][1]["unlocked"]
         with pytest.raises(KeyError):
-            progress.complete_lesson(s, 1, "u5-l1", 5, 5)  # 준비 중 레슨
+            progress.complete_lesson(s, 1, "u9-l9", 5, 5)  # 없는 레슨
 
 
 def test_streak(sqlite_db):

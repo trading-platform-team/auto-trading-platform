@@ -51,8 +51,9 @@ UNITS = [
         "title": "리스크 관리",
         "description": "손익비, 손절·익절, 투자 비중",
         "lessons": [
-            {"id": "u5-l1", "title": "손절과 익절", "available": False},
-            {"id": "u5-l2", "title": "손익비", "available": False},
+            {"id": "u5-l1", "title": "손절과 익절", "available": True},
+            {"id": "u5-l2", "title": "손익비", "available": True},
+            {"id": "u5-l3", "title": "투자 비중", "available": True},
         ],
     },
     {
@@ -60,8 +61,8 @@ UNITS = [
         "title": "자동매매 설정",
         "description": "배운 내용으로 나만의 자동매매 전략 만들기",
         "lessons": [
-            {"id": "u6-l1", "title": "조건 만들기", "available": False},
-            {"id": "u6-l2", "title": "내 첫 자동매매", "available": False},
+            {"id": "u6-l1", "title": "조건 만들기", "available": True},
+            {"id": "u6-l2", "title": "내 첫 자동매매", "available": True},
         ],
     },
 ]

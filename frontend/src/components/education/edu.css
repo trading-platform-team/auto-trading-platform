@@ -158,3 +158,42 @@
 .duel-result { display: grid; grid-template-columns: minmax(80px, 1fr) 80px auto; align-items: center; gap: 10px; margin-top: 4px; }
 .spot-chart { background: var(--bg); border-radius: 12px; padding: 10px; }
 .spot-chart .recharts-surface { cursor: crosshair; }
+
+/* 진행률 · 수료 */
+.course-progress { display: flex; align-items: center; gap: 12px; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 12px 16px; }
+.course-progress span { color: var(--muted); font-size: 13px; white-space: nowrap; }
+.graduate { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; background: linear-gradient(135deg, #2a2450, #1d2b23); border: 1px solid #7c6cf2; border-radius: 16px; padding: 16px 18px; }
+.graduate p { margin: 2px 0 0; }
+.grad-icon { font-size: 40px; }
+.grad-actions { margin-left: auto; display: flex; gap: 8px; }
+
+/* 슬라이더 카드 */
+.slider-wrap { display: grid; grid-template-columns: minmax(200px, 1fr) minmax(200px, 1fr); gap: 18px; align-items: center; }
+@media (max-width: 600px) { .slider-wrap { grid-template-columns: 1fr; } }
+.ladder { position: relative; height: 220px; background: var(--bg); border-radius: 12px; overflow: hidden; }
+.ladder-line { position: absolute; left: 0; right: 0; border-top: 2px solid; transition: top 0.15s; }
+.ladder-line span { position: absolute; right: 8px; top: -20px; font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.ladder-line.entry { border-color: var(--text); border-top-style: dashed; }
+.ladder-line.entry span { right: auto; left: 8px; top: 4px; color: var(--muted); }
+.ladder-line.tp { border-color: var(--up); color: var(--up); }
+.ladder-line.sl { border-color: var(--down); color: var(--down); }
+.ladder-line.sl span { top: 4px; }
+.ladder-zone { position: absolute; left: 0; right: 0; opacity: 0.12; transition: all 0.15s; }
+.ladder-zone.win { background: var(--up); }
+.ladder-zone.loss { background: var(--down); }
+.sliders { display: flex; flex-direction: column; gap: 14px; }
+.sliders label { display: flex; flex-direction: column; gap: 6px; }
+.sliders label span { display: flex; justify-content: space-between; }
+.sliders input[type='range'] { width: 100%; accent-color: var(--accent); padding: 0; }
+.rr { background: var(--card-2); border-radius: 10px; padding: 10px 12px; text-align: center; }
+.rr b { font-size: 20px; color: #f5b041; margin-left: 6px; }
+
+/* 전략 만들기 · 졸업 등록 */
+.mission { background: rgba(124, 108, 242, 0.1); border: 1px solid rgba(124, 108, 242, 0.4); border-radius: 10px; padding: 10px 12px; font-weight: 600; line-height: 1.6; }
+.mission-tag { background: var(--accent); color: #fff; border-radius: 6px; padding: 1px 7px; font-size: 12px; margin-right: 4px; }
+fieldset.plain { border: none; padding: 0; margin: 0; min-width: 0; }
+.answer-box { background: rgba(242, 85, 90, 0.08); border: 1px solid rgba(242, 85, 90, 0.35); border-radius: 10px; padding: 10px 12px; }
+.answer-box p { margin: 4px 0 0; }
+.deploy-box { background: var(--bg); border: 1px dashed #7c6cf2; border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 8px; }
+.deploy-title { font-weight: 800; font-size: 16px; }
+.deploy-box .pb-grid b { text-align: left; }

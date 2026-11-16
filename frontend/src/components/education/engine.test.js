@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { LESSONS } from './content/index.js'
-import { answer, checkInput, gradedCount, missions, next, parseBold, start } from './engine.js'
+import { answer, checkInput, checkSlider, gradedCount, matchStrategy, missions, next, parseBold, rewardRisk, start } from './engine.js'
 import { targets } from './indicators.js'
 
 describe('레슨 진행', () => {
@@ -52,6 +52,9 @@ describe('레슨 콘텐츠 검사', () => {
         if (['choice', 'ox', 'input', 'spot'].includes(c.type)) expect(c.explain).toBeTruthy()
         if (c.type === 'spot') expect(targets(c.find, c.series).length).toBeGreaterThan(0)
         if (c.type === 'duel') expect(c.symbol && c.start && c.end && c.lesson).toBeTruthy()
+        if (c.type === 'slider') for (const f of c.fields) expect(f.answer >= f.min && f.answer <= f.max).toBe(true)
+        if (c.type === 'build') expect(c.target.conditions.length).toBeGreaterThan(0)
+        if (c.type === 'build') expect(matchStrategy(c.target, { ...c.target, cooldown_sec: c.target.cooldown_sec ?? 60 }).ok).toBe(true)
       }
     })
   }
@@ -70,5 +73,33 @@ describe('연습 매매 미션', () => {
     }
     expect(missions(acc).every((m) => m.done)).toBe(true)
     expect(missions({ positions: [], trades: [] }).some((m) => m.done)).toBe(false)
+  })
+})
+
+describe('리스크 관리 계산', () => {
+  it('손익비와 슬라이더 채점', () => {
+    expect(rewardRisk(10, -5)).toBe(2)
+    const card = { fields: [{ key: 'sl', answer: -5 }, { key: 'tp', answer: 10 }] }
+    expect(checkSlider(card, { sl: -5, tp: 10 })).toBe(true)
+    expect(checkSlider(card, { sl: -5, tp: 9 })).toBe(false)
+  })
+})
+
+describe('전략 만들기 채점', () => {
+  const target = {
+    symbol: '035720', side: 'buy', quantity: 20,
+    conditions: [
+      { left: { name: 'RSI', period: 14 }, op: '<', right: 30 },
+      { left: { name: 'PRICE' }, op: '<', right: { name: 'BB_LOWER', period: 20 } },
+    ],
+  }
+  it('조건 순서가 달라도 같은 전략이면 정답, 폼 값(문자열)도 인정', () => {
+    const built = { symbol: '035720', side: 'buy', quantity: '20', cooldown_sec: 60, conditions: [target.conditions[1], { ...target.conditions[0], right: '30' }] }
+    built.conditions[1].right = 30
+    expect(matchStrategy(target, built).ok).toBe(true)
+  })
+  it('틀린 부분을 알려줌', () => {
+    const built = { symbol: '005930', side: 'buy', quantity: 10, cooldown_sec: 60, conditions: [target.conditions[0]] }
+    expect(matchStrategy(target, built).problems).toEqual(['종목', '수량', '조건'])
   })
 })

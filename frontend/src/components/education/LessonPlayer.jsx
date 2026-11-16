@@ -30,7 +30,7 @@ export default function LessonPlayer({ lessonId, badgesMeta, onExit, onDone }) {
     const s = answer(state, ok)
     setState(s)
     if (ok === null) {
-      if (!['predict', 'duel'].includes(card.type)) proceed(s)
+      if (!['predict', 'duel', 'deploy'].includes(card.type)) proceed(s)
       return
     }
     setFeedback({ ok, text: card.explain ?? '' })
