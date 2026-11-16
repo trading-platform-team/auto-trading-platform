@@ -64,6 +64,12 @@ export const api = {
     request('/edu/account/orders', { method: 'POST', body: JSON.stringify({ symbol, side, quantity }) }),
   eduReset: () => request('/edu/account/reset', { method: 'POST' }),
   history: (symbol, start, end) => request(`/history/${symbol}?start=${start}&end=${end}`),
+  historyEvents: (symbol, start, end) => {
+    const query = new URLSearchParams()
+    if (start) query.set('start', start)
+    if (end) query.set('end', end)
+    return request(`/history/${symbol}/events${query.size ? `?${query}` : ''}`)
+  },
   // 타임머신
   historySymbols: () => request('/history/symbols'),
   backtestPresets: () => request('/backtest/presets'),

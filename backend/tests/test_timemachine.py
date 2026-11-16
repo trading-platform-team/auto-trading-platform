@@ -107,6 +107,17 @@ def test_history_seeded(client):
     assert len(client.get("/history/005930?start=2024-01-01&end=2024-01-31").json()) == 23
 
 
+def test_history_events_are_filtered_by_symbol_and_period(client):
+    events = client.get("/history/005930/events?start=2024-04-01&end=2024-05-31").json()
+    assert [e["id"] for e in events] == ["samsung-2024-q1"]
+    assert events[0]["source_url"].startswith("https://")
+    assert "인과관계를 단정하지 않습니다" in events[0]["educational_note"]
+
+    market_events = client.get("/history/035420/events?start=2024-01-01&end=2024-12-31").json()
+    assert {e["id"] for e in market_events} >= {"bok-2024-01-hold", "naver-2024-q1", "bok-2024-10-cut"}
+    assert client.get("/history/005930/events?start=2025-01-01&end=2024-01-01").status_code == 422
+
+
 def test_backtest_api(client):
     presets = client.get("/backtest/presets").json()
     body = {"symbol": "005930", "start": "2024-01-02", "end": "2025-06-30",
@@ -123,6 +134,7 @@ def test_timemachine_api(client):
     v = client.post("/timemachine/sessions", json={"symbol": "000660", "start_date": "2024-06-03"}).json()
     sid, start = v["id"], v["date"]
     assert v["chart"][-1]["date"] == start and v["anomalies"] == []
+    assert all(e["date"] <= v["date"] for e in v["events"])
 
     v = client.post(f"/timemachine/sessions/{sid}/order", json={"side": "buy", "quantity": 5}).json()
     assert v["account"]["qty"] == 5
