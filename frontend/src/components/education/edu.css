@@ -51,9 +51,9 @@
   color: var(--text); font: inherit; cursor: pointer; box-shadow: 0 3px 0 #0a0d12;
 }
 .option:hover:not(:disabled) { border-color: #4a5466; }
-.option.sel { border-color: var(--accent); background: #221f3d; }
-.option.right { border-color: var(--ok); background: rgba(46, 204, 113, 0.12); }
-.option.wrong { border-color: var(--up); background: rgba(242, 85, 90, 0.12); }
+.option.is-sel { border-color: var(--accent); background: #221f3d; }
+.option.is-right { border-color: var(--ok); background: rgba(46, 204, 113, 0.12); }
+.option.is-wrong { border-color: var(--up); background: rgba(242, 85, 90, 0.12); }
 .option:disabled { cursor: default; }
 .opt-key { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 6px; border: 1px solid var(--line); font-size: 12px; color: var(--muted); margin-right: 6px; }
 .shake { animation: shake 0.4s; }
@@ -65,8 +65,8 @@
 }
 .ox-btn.o { color: #5dade2; }
 .ox-btn.x { color: var(--up); }
-.ox-btn.right { border-color: var(--ok); background: rgba(46, 204, 113, 0.12); }
-.ox-btn.wrong { border-color: var(--up); background: rgba(242, 85, 90, 0.12); }
+.ox-btn.is-right { border-color: var(--ok); background: rgba(46, 204, 113, 0.12); }
+.ox-btn.is-wrong { border-color: var(--up); background: rgba(242, 85, 90, 0.12); }
 .ox-btn:disabled { cursor: default; }
 .match-grid { display: grid; grid-template-columns: 1fr 1.4fr; gap: 10px; }
 .match-grid > div { display: flex; flex-direction: column; gap: 8px; }
@@ -151,3 +151,10 @@
 .badge-icon { font-size: 36px; }
 .badge p { margin: 4px 0 0; }
 .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #2b2410; border: 1px solid #f5b041; color: #ffd27a; padding: 12px 18px; border-radius: 12px; z-index: 50; animation: slideIn 0.3s; }
+
+/* 전략 대결 · 차트 찾기 */
+.option.duel { display: flex; flex-direction: column; gap: 4px; }
+.option.duel.bh { cursor: default; opacity: 0.85; }
+.duel-result { display: grid; grid-template-columns: minmax(80px, 1fr) 80px auto; align-items: center; gap: 10px; margin-top: 4px; }
+.spot-chart { background: var(--bg); border-radius: 12px; padding: 10px; }
+.spot-chart .recharts-surface { cursor: crosshair; }

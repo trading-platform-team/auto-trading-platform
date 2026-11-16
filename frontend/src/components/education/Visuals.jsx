@@ -29,6 +29,65 @@ export function MiniCandles({ data, width = 300, height = 140 }) {
   )
 }
 
+// 종가 선 + 5일·20일 이동평균 (간단한 선 차트)
+export function MiniLine({ data, width = 420, height = 150 }) {
+  const avg = (n) => data.map((_, i) => (i < n - 1 ? null : data.slice(i - n + 1, i + 1).reduce((a, b) => a + b, 0) / n))
+  const max = Math.max(...data)
+  const min = Math.min(...data)
+  const x = (i) => 6 + (i / (data.length - 1)) * (width - 12)
+  const y = (v) => 8 + ((max - v) / (max - min || 1)) * (height - 16)
+  const path = (arr) => arr.map((v, i) => (v == null ? '' : `${x(i)},${y(v)}`)).filter(Boolean).join(' ')
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} className="edu-svg" role="img" aria-label="가격과 이동평균선">
+      <polyline points={path(data)} fill="none" stroke={TEXT} strokeWidth="1.5" />
+      <polyline points={path(avg(5))} fill="none" stroke="#f5b041" strokeWidth="2" />
+      <polyline points={path(avg(20))} fill="none" stroke="#5dade2" strokeWidth="2" />
+    </svg>
+  )
+}
+
+function Rsi() {
+  const zones = [['과매도', 0, 30, DOWN], ['보통', 30, 70, MUTED], ['과매수', 70, 100, UP]]
+  return (
+    <svg viewBox="0 0 400 90" className="edu-svg" role="img" aria-label="RSI 구간">
+      {zones.map(([t, a, b, c]) => (
+        <g key={t}>
+          <rect x={10 + a * 3.8} y="20" width={(b - a) * 3.8} height="26" fill={c} opacity="0.35" />
+          <text x={10 + ((a + b) / 2) * 3.8} y="38" fill={TEXT} fontSize="13" textAnchor="middle" fontWeight="700">{t}</text>
+        </g>
+      ))}
+      {[0, 30, 70, 100].map((v) => (
+        <text key={v} x={10 + v * 3.8} y="64" fill={MUTED} fontSize="12" textAnchor="middle">{v}</text>
+      ))}
+      <text x="200" y="84" fill={MUTED} fontSize="11" textAnchor="middle">RSI(14) 값</text>
+    </svg>
+  )
+}
+
+function Bollinger() {
+  const n = 40
+  const mid = Array.from({ length: n }, (_, i) => 70 - i * 0.4 + Math.sin(i * 0.3) * 4)
+  const width = Array.from({ length: n }, (_, i) => 10 + Math.sin(i * 0.15) * 5)
+  const price = mid.map((m, i) => m + Math.sin(i * 1.3) * width[i] * 0.7 + (i === 30 ? -width[i] * 1.5 : 0))
+  const x = (i) => 10 + i * 9.5
+  const pts = (arr) => arr.map((v, i) => `${x(i)},${v}`).join(' ')
+  const upper = mid.map((m, i) => m - width[i])
+  const lower = mid.map((m, i) => m + width[i])
+  return (
+    <svg viewBox="0 0 400 120" className="edu-svg" role="img" aria-label="볼린저밴드">
+      <polygon points={`${pts(upper)} ${[...lower].reverse().map((v, i) => `${x(n - 1 - i)},${v}`).join(' ')}`} fill="#8e7cc3" opacity="0.2" />
+      <polyline points={pts(upper)} fill="none" stroke="#8e7cc3" strokeWidth="1.5" />
+      <polyline points={pts(lower)} fill="none" stroke="#8e7cc3" strokeWidth="1.5" />
+      <polyline points={pts(mid)} fill="none" stroke="#5dade2" strokeWidth="1.5" strokeDasharray="4 3" />
+      <polyline points={pts(price)} fill="none" stroke={TEXT} strokeWidth="2" />
+      <circle cx={x(30)} cy={price[30]} r="6" fill="none" stroke="#f5a623" strokeWidth="2" />
+      <text x="390" y="14" fill="#8e7cc3" fontSize="11" textAnchor="end">▒ 밴드 (평소 범위)</text>
+      <text x="390" y="28" fill="#5dade2" fontSize="11" textAnchor="end">┅ 20일 평균</text>
+      <text x={x(30)} y={price[30] + 20} fill="#f5a623" fontSize="11" textAnchor="middle">하단 이탈</text>
+    </svg>
+  )
+}
+
 function Candle() {
   const one = (x, up) => {
     const color = up ? UP : DOWN
@@ -187,6 +246,8 @@ const VISUALS = {
   trend: Trend,
   volume: Volume,
   ma: MovingAverage,
+  rsi: Rsi,
+  bb: Bollinger,
   account: Account,
   pizza: () => <Emoji icons="🏢 → 🍕🍕🍕🍕" caption="회사(피자)를 조각(주식)으로 나눠 판다" />,
   ticker: () => <Emoji icons="005930 · 000660 · 035420" caption="삼성전자 · SK하이닉스 · NAVER" />,

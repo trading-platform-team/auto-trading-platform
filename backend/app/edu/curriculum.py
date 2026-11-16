@@ -32,9 +32,9 @@ UNITS = [
         "title": "기술적 지표",
         "description": "RSI, 볼린저밴드, 골든크로스",
         "lessons": [
-            {"id": "u3-l1", "title": "RSI", "available": False},
-            {"id": "u3-l2", "title": "볼린저밴드", "available": False},
-            {"id": "u3-l3", "title": "골든크로스·데드크로스", "available": False},
+            {"id": "u3-l1", "title": "RSI", "available": True},
+            {"id": "u3-l2", "title": "볼린저밴드", "available": True},
+            {"id": "u3-l3", "title": "골든크로스·데드크로스", "available": True},
         ],
     },
     {
@@ -42,8 +42,8 @@ UNITS = [
         "title": "유명 매매 전략",
         "description": "대표 전략을 백테스트로 비교해 보기",
         "lessons": [
-            {"id": "u4-l1", "title": "추세 추종 전략", "available": False},
-            {"id": "u4-l2", "title": "역추세 전략", "available": False},
+            {"id": "u4-l1", "title": "추세 추종 전략", "available": True},
+            {"id": "u4-l2", "title": "역추세 전략", "available": True},
         ],
     },
     {
