@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app import db
-from app.api import auth, health, market, strategies, timemachine, ws
+from app.api import auth, edu, health, market, strategies, timemachine, ws
 from app.auth import security, vault
 from app.core.config import settings
 from app.market.consumer import consume_forever
@@ -51,6 +51,7 @@ app.add_middleware(
 )
 
 app.include_router(auth.router)
+app.include_router(edu.router)
 app.include_router(health.router)
 app.include_router(market.router)
 app.include_router(strategies.router)

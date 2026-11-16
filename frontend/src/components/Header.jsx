@@ -17,6 +17,9 @@ export default function Header({ voice, onToggleVoice, wsConnected, page, onPage
         </div>
       </div>
       <nav className="tabs">
+        <button className={page === 'edu' ? 'on' : ''} onClick={() => onPage('edu')}>
+          📚 교육
+        </button>
         <button className={page === 'live' ? 'on' : ''} onClick={() => onPage('live')}>
           실시간 자동매매
         </button>
