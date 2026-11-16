@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { LESSONS } from './content/index.js'
 import { answer, checkInput, gradedCount, missions, next, parseBold, start } from './engine.js'
+import { targets } from './indicators.js'
 
 describe('레슨 진행', () => {
   it('오답 3번이면 실패', () => {
@@ -48,7 +49,9 @@ describe('레슨 콘텐츠 검사', () => {
         if (c.type === 'ox') expect(typeof c.answer).toBe('boolean')
         if (c.type === 'match') expect(c.pairs.length).toBeGreaterThanOrEqual(3)
         if (c.type === 'input') expect(Number.isFinite(c.answer)).toBe(true)
-        if (['choice', 'ox', 'input'].includes(c.type)) expect(c.explain).toBeTruthy()
+        if (['choice', 'ox', 'input', 'spot'].includes(c.type)) expect(c.explain).toBeTruthy()
+        if (c.type === 'spot') expect(targets(c.find, c.series).length).toBeGreaterThan(0)
+        if (c.type === 'duel') expect(c.symbol && c.start && c.end && c.lesson).toBeTruthy()
       }
     })
   }

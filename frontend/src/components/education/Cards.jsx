@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { api } from '../../api.js'
 import { checkInput, parseBold } from './engine.js'
-import Visual, { MiniCandles } from './Visuals.jsx'
+import DuelCard from './DuelCard.jsx'
+import SpotCard from './SpotCard.jsx'
+import Visual, { MiniCandles, MiniLine } from './Visuals.jsx'
 
 export function Rich({ text }) {
   return text.split('\n').map((line, i) => (
@@ -44,9 +46,10 @@ export function ChoiceCard({ card, onCheck, locked }) {
       <h3>{card.q}</h3>
       {card.visual && <Visual name={card.visual} />}
       {card.chart && <div className="edu-visual"><MiniCandles data={card.chart} /></div>}
+      {card.chartSeries && <div className="edu-visual"><MiniLine data={card.chartSeries} /></div>}
       <div className="options">
         {card.options.map((o, i) => {
-          const state = locked ? (i === card.answer ? 'right' : i === sel ? 'wrong' : '') : i === sel ? 'sel' : ''
+          const state = locked ? (i === card.answer ? 'is-right' : i === sel ? 'is-wrong' : '') : i === sel ? 'is-sel' : ''
           return (
             <button key={i} className={`option ${state}`} disabled={locked} onClick={() => setSel(i)}>
               <span className="opt-key">{i + 1}</span> {o}
@@ -76,7 +79,7 @@ export function OXCard({ card, onCheck, locked }) {
         {[true, false].map((v) => (
           <button
             key={String(v)}
-            className={`ox-btn ${v ? 'o' : 'x'} ${locked && v === card.answer ? 'right' : ''} ${locked && v === sel && v !== card.answer ? 'wrong' : ''}`}
+            className={`ox-btn ${v ? 'o' : 'x'} ${locked && v === card.answer ? 'is-right' : ''} ${locked && v === sel && v !== card.answer ? 'is-wrong' : ''}`}
             disabled={locked}
             onClick={() => pick(v)}
           >
@@ -119,7 +122,7 @@ export function MatchCard({ card, onCheck, locked }) {
       <div className="match-grid">
         <div>
           {lefts.map((l) => (
-            <button key={l} className={`option ${matched.includes(l) ? 'right' : left === l ? 'sel' : ''}`}
+            <button key={l} className={`option ${matched.includes(l) ? 'is-right' : left === l ? 'is-sel' : ''}`}
               disabled={locked || matched.includes(l)} onClick={() => setLeft(l)}>
               {l}
             </button>
@@ -127,7 +130,7 @@ export function MatchCard({ card, onCheck, locked }) {
         </div>
         <div>
           {rights.map((r) => (
-            <button key={r} className={`option ${doneRight(r) ? 'right' : flash === r ? 'wrong shake' : ''}`}
+            <button key={r} className={`option ${doneRight(r) ? 'is-right' : flash === r ? 'is-wrong shake' : ''}`}
               disabled={locked || doneRight(r)} onClick={() => tryRight(r)}>
               {r}
             </button>
@@ -221,4 +224,6 @@ export const CARD_COMPONENTS = {
   match: MatchCard,
   input: InputCard,
   predict: PredictCard,
+  spot: SpotCard,
+  duel: DuelCard,
 }

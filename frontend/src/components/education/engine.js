@@ -1,7 +1,7 @@
 // 레슨 진행 규칙 (화면과 분리된 순수 함수 → 단위 테스트)
 
 export const MAX_HEARTS = 3
-export const GRADED = new Set(['choice', 'ox', 'match', 'input'])
+export const GRADED = new Set(['choice', 'ox', 'match', 'input', 'spot'])
 
 export const gradedCount = (cards) => cards.filter((c) => GRADED.has(c.type)).length
 

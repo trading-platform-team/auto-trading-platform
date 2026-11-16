@@ -30,17 +30,17 @@ export default function LessonPlayer({ lessonId, badgesMeta, onExit, onDone }) {
     const s = answer(state, ok)
     setState(s)
     if (ok === null) {
-      if (card.type !== 'predict') proceed(s)
+      if (!['predict', 'duel'].includes(card.type)) proceed(s)
       return
     }
     setFeedback({ ok, text: card.explain ?? '' })
   }
 
-  const onPredict = ({ hit, change }) =>
+  const onPredict = ({ hit, change, text }) =>
     setFeedback({
       ok: hit,
       neutral: true,
-      text: `실제로는 ${change > 0 ? '+' : ''}${change}% ${change > 0 ? '올랐어요' : '내렸어요'}. ${hit ? '감이 좋네요!' : '예측은 어려워요.'} 그래서 **정해진 규칙**과 **손절·익절**로 매매하는 게 중요해요. 자동매매가 필요한 이유죠!`,
+      text: text ?? `실제로는 ${change > 0 ? '+' : ''}${change}% ${change > 0 ? '올랐어요' : '내렸어요'}. ${hit ? '감이 좋네요!' : '예측은 어려워요.'} 그래서 **정해진 규칙**과 **손절·익절**로 매매하는 게 중요해요. 자동매매가 필요한 이유죠!`,
     })
 
   const proceed = (s = state) => {
