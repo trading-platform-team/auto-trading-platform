@@ -1,7 +1,7 @@
 // 레슨 진행 규칙 (화면과 분리된 순수 함수 → 단위 테스트)
 
 export const MAX_HEARTS = 3
-export const GRADED = new Set(['choice', 'ox', 'match', 'input', 'spot'])
+export const GRADED = new Set(['choice', 'ox', 'match', 'input', 'spot', 'slider', 'build'])
 
 export const gradedCount = (cards) => cards.filter((c) => GRADED.has(c.type)).length
 
@@ -53,4 +53,30 @@ export function missions(account) {
     { id: 'sell', title: '매도해서 손익 확정하기', hint: '판 순간 실현손익이 생겨요', done: sells.length > 0 },
     { id: 'profit', title: '이익을 보고 팔기', hint: '평단보다 비쌀 때 팔아 보세요', done: sells.some((t) => t.realized_pnl > 0) },
   ]
+}
+
+// 슬라이더 카드: 모든 값이 정답과 같은지 (허용 오차 tol)
+export function checkSlider(card, values) {
+  return card.fields.every((f) => Math.abs(Number(values[f.key]) - f.answer) <= (f.tol ?? 0))
+}
+
+// 손익비 = 익절폭 / 손절폭
+export const rewardRisk = (tpPct, slPct) => (slPct === 0 ? null : Math.abs(tpPct) / Math.abs(slPct))
+
+// 전략 만들기 카드: 만든 전략이 목표와 같은지 (조건 순서는 상관없음)
+function normCond(c) {
+  const ind = (x) => (typeof x === 'number' ? Number(x) : { name: x.name, period: x.period == null ? null : Number(x.period) })
+  return JSON.stringify({ left: ind(c.left), op: c.op, right: ind(c.right) })
+}
+
+export function matchStrategy(target, built) {
+  const problems = []
+  if (target.symbol && built.symbol !== target.symbol) problems.push('종목')
+  if (target.side && built.side !== target.side) problems.push('매수/매도')
+  if (target.quantity && Number(built.quantity) !== target.quantity) problems.push('수량')
+  if (target.cooldown_sec != null && Number(built.cooldown_sec) !== target.cooldown_sec) problems.push('쿨다운')
+  const want = target.conditions.map(normCond).sort()
+  const got = built.conditions.map(normCond).sort()
+  if (JSON.stringify(want) !== JSON.stringify(got)) problems.push('조건')
+  return { ok: problems.length === 0, problems }
 }

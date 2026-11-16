@@ -71,7 +71,7 @@ function Dashboard({ username }) {
       <Header voice={voice} onToggleVoice={() => setVoice((v) => !v)} wsConnected={wsConnected} page={page} onPage={setPage} username={username} />
       {page === 'edu' ? (
         <main className="tm-main">
-          <EducationPage />
+          <EducationPage onNavigate={setPage} />
         </main>
       ) : page === 'timemachine' ? (
         <main className="tm-main">

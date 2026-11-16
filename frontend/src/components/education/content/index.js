@@ -2,8 +2,10 @@ import { unit1 } from './unit1.js'
 import { unit2 } from './unit2.js'
 import { unit3 } from './unit3.js'
 import { unit4 } from './unit4.js'
+import { unit5 } from './unit5.js'
+import { unit6 } from './unit6.js'
 
-export const LESSONS = { ...unit1, ...unit2, ...unit3, ...unit4 }
+export const LESSONS = { ...unit1, ...unit2, ...unit3, ...unit4, ...unit5, ...unit6 }
 
 // 용어 사전 (레슨에서 배운 용어)
 export const GLOSSARY = [
@@ -46,4 +48,12 @@ export const GLOSSARY = [
   ['추세 추종', '오르기 시작하면 사고 꺾이면 파는 전략 (예: 골든크로스)', 'u4-l1'],
   ['역추세', '지나치게 움직인 가격이 되돌아온다고 보는 전략 (예: RSI, 볼린저 반등)', 'u4-l2'],
   ['백테스트', '전략을 과거 시세에 적용해 성과를 미리 확인하는 것', 'u4-l2'],
+  ['손절', '손실이 정한 만큼 커지면 팔아서 더 큰 손실을 막는 것', 'u5-l1'],
+  ['익절', '이익이 목표만큼 나면 팔아서 이익을 확정하는 것', 'u5-l1'],
+  ['손익비', '목표 이익폭이 감수할 손실폭의 몇 배인지 (예: 1 : 2)', 'u5-l2'],
+  ['승률', '전체 매매 중 이익을 낸 비율', 'u5-l2'],
+  ['분산 투자', '여러 종목에 나눠 투자해 한 종목의 위험을 줄이는 것', 'u5-l3'],
+  ['1회 손실 한도', '한 번 매매에서 잃어도 되는 최대 금액 (보통 계좌의 1~2%)', 'u5-l3'],
+  ['조건 (자동매매)', '주문할 시점을 정하는 규칙. 여러 개면 모두 만족해야 주문', 'u6-l1'],
+  ['쿨다운', '주문 후 같은 전략이 다시 주문하지 않고 기다리는 시간', 'u6-l2'],
 ].map(([term, def, lesson]) => ({ term, def, lesson }))

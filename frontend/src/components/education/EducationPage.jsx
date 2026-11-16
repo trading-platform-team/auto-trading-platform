@@ -30,7 +30,7 @@ function Stats({ p }) {
   )
 }
 
-export default function EducationPage() {
+export default function EducationPage({ onNavigate }) {
   const [progress, setProgress] = useState(null)
   const [tab, setTab] = useState('path')
   const [lesson, setLesson] = useState(null)
@@ -79,7 +79,7 @@ export default function EducationPage() {
         <Stats p={progress} />
       </div>
 
-      {tab === 'path' && <LearningPath progress={progress} onStart={setLesson} />}
+      {tab === 'path' && <LearningPath progress={progress} onStart={setLesson} onGo={onNavigate} />}
       {tab === 'practice' && <Practice onBadge={showBadges} />}
       {tab === 'glossary' && <Glossary completed={completed} />}
       {tab === 'badges' && (
