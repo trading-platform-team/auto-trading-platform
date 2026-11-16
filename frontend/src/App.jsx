@@ -2,11 +2,11 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { api, auth } from './api.js'
 import AlertFeed from './components/AlertFeed.jsx'
 import AnomalyPanel from './components/AnomalyPanel.jsx'
-import BeginnerMode from './components/BeginnerMode.jsx'
 import EducationPage from './components/education/EducationPage.jsx'
 import Header from './components/Header.jsx'
 import LoginScreen from './components/LoginScreen.jsx'
 import OrderTable from './components/OrderTable.jsx'
+import PaperTradingPage from './components/PaperTradingPage.jsx'
 import PriceChart from './components/PriceChart.jsx'
 import PriceTable from './components/PriceTable.jsx'
 import StrategyPanel from './components/StrategyPanel.jsx'
@@ -37,7 +37,7 @@ export default function App() {
 }
 
 function Dashboard({ username }) {
-  const [page, setPage] = useState('live')
+  const [page, setPage] = useState('education')
   const [selected, setSelected] = useState('005930')
   const [voice, setVoice] = useState(false)
   const [alerts, setAlerts] = useState([])
@@ -69,18 +69,30 @@ function Dashboard({ username }) {
   return (
     <div className="app">
       <Header voice={voice} onToggleVoice={() => setVoice((v) => !v)} wsConnected={wsConnected} page={page} onPage={setPage} username={username} />
-      {page === 'edu' ? (
+      {page === 'education' ? (
         <main className="tm-main">
           <EducationPage />
         </main>
+      ) : page === 'paper' ? (
+        <PaperTradingPage
+          symbols={symbols}
+          selected={selected}
+          onSelected={setSelected}
+          selectedName={selectedName}
+          anomalySymbols={recentAnomalySymbols}
+          alerts={alerts}
+          anomalies={anomalies}
+        />
       ) : page === 'timemachine' ? (
         <main className="tm-main">
           <TimeMachinePage />
         </main>
-      ) : page === 'beginner' ? (
-        <BeginnerMode symbols={symbols} selected={selected} onSelected={setSelected} selectedName={selectedName}
-          anomalySymbols={recentAnomalySymbols} alerts={alerts} anomalies={anomalies} />
       ) : (
+      <>
+      <section className="live-mode-notice" role="status">
+        <b>실거래 연결 준비 중</b>
+        <span>현재 화면은 모의 시세와 모의 주문을 사용합니다. 키움 계좌가 연결되기 전에는 실제 주문이 실행되지 않습니다.</span>
+      </section>
       <main className="grid">
         <div className="col-left">
           <PriceTable selected={selected} onSelect={setSelected} anomalySymbols={recentAnomalySymbols} />
@@ -95,6 +107,7 @@ function Dashboard({ username }) {
           <AnomalyPanel anomalies={anomalies} onSelect={setSelected} />
         </div>
       </main>
+      </>
       )}
     </div>
   )
