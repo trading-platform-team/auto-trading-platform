@@ -55,6 +55,15 @@ export const api = {
   orders: (limit = 30) => request(`/orders?limit=${limit}`),
   alerts: (limit = 30) => request(`/alerts?limit=${limit}`),
   anomalies: (limit = 30) => request(`/anomalies?limit=${limit}`),
+  // 교육
+  eduProgress: () => request('/edu/progress'),
+  eduComplete: (lessonId, correct, total) =>
+    request(`/edu/lessons/${lessonId}/complete`, { method: 'POST', body: JSON.stringify({ correct, total }) }),
+  eduAccount: () => request('/edu/account'),
+  eduOrder: (symbol, side, quantity) =>
+    request('/edu/account/orders', { method: 'POST', body: JSON.stringify({ symbol, side, quantity }) }),
+  eduReset: () => request('/edu/account/reset', { method: 'POST' }),
+  history: (symbol, start, end) => request(`/history/${symbol}?start=${start}&end=${end}`),
   // 타임머신
   historySymbols: () => request('/history/symbols'),
   backtestPresets: () => request('/backtest/presets'),

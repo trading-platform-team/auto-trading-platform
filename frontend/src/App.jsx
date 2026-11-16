@@ -3,6 +3,7 @@ import { api, auth } from './api.js'
 import AlertFeed from './components/AlertFeed.jsx'
 import AnomalyPanel from './components/AnomalyPanel.jsx'
 import BeginnerMode from './components/BeginnerMode.jsx'
+import EducationPage from './components/education/EducationPage.jsx'
 import Header from './components/Header.jsx'
 import LoginScreen from './components/LoginScreen.jsx'
 import OrderTable from './components/OrderTable.jsx'
@@ -68,7 +69,11 @@ function Dashboard({ username }) {
   return (
     <div className="app">
       <Header voice={voice} onToggleVoice={() => setVoice((v) => !v)} wsConnected={wsConnected} page={page} onPage={setPage} username={username} />
-      {page === 'timemachine' ? (
+      {page === 'edu' ? (
+        <main className="tm-main">
+          <EducationPage />
+        </main>
+      ) : page === 'timemachine' ? (
         <main className="tm-main">
           <TimeMachinePage />
         </main>
