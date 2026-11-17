@@ -3,14 +3,14 @@
 자동매매 엔진(engine.py)은 account="paper" 전략을 이 인터페이스로 주문한다.
 새 모의 주문 방식은 Broker를 상속해 place()만 구현하면 된다.
 
-- PaperBroker: 현재가로 즉시 체결되는 모의 주문 (DB orders 테이블에 기록)
+- PaperBroker: 전략 주인의 가상계좌로 현재가에 즉시 체결 (잔고 확인, DB orders 테이블에 기록)
 - 키움 실주문(account="kiwoom")은 app/trading/broker.py 가 따로 맡는다
   (비동기, 위험 제한, kiwoom_orders 테이블). 상태 이름은 그쪽과 같게 맞춘다.
 
 place() 약속
 1. 주문 결과를 Order로 DB에 남기고 그 Order를 돌려준다. 거부된 주문도 기록한다.
 2. status는 아래 셋 중 하나다.
-   - FILLED    체결됨 (PaperBroker는 항상 즉시 체결)
+   - FILLED    체결됨 (PaperBroker는 잔고가 충분하면 즉시 체결)
    - SUBMITTED 접수됨, 체결 대기 (체결이 나중에 확정될 때)
    - REJECTED  거부됨 (잔고·보유 수량 부족 등)
 3. 거부 사유는 reason["reject_reason"]에 사람이 읽을 문장으로 넣는다.
@@ -21,6 +21,7 @@ from abc import ABC, abstractmethod
 
 from sqlalchemy.orm import Session
 
+from app.edu import account
 from app.strategy.models import Order, Strategy
 
 FILLED = "FILLED"
@@ -65,9 +66,31 @@ class Broker(ABC):
 
 
 class PaperBroker(Broker):
-    """모의 주문: 현재가로 즉시 체결 (잔고 확인은 가상계좌 연결 단계에서 추가)"""
+    """모의 주문: 전략 주인의 가상계좌(edu/account.py)로 현재가에 즉시 체결
+
+    - 현금이 부족하거나 보유 수량이 부족하면 계좌를 바꾸지 않고 REJECTED로 기록
+    - 체결되면 가상계좌 거래(EduTrade, strategy_id 포함)와 주문 내역(Order)을 한 번에 커밋
+    """
 
     name = "paper"
 
     def place(self, session: Session, strategy: Strategy, price: float, reason: dict) -> Order:
-        return self.record(session, strategy, price, reason, FILLED)
+        if strategy.user_id is None:
+            return self.record(
+                session, strategy, price, reason, REJECTED, "전략 주인이 없어 가상계좌로 주문할 수 없어요"
+            )
+        try:
+            trade = account.place_order(
+                session,
+                strategy.user_id,
+                strategy.symbol,
+                strategy.side,
+                strategy.quantity,
+                price,
+                strategy_id=strategy.id,
+                commit=False,
+            )
+        except account.OrderRejected as e:
+            session.rollback()
+            return self.record(session, strategy, price, reason, REJECTED, str(e))
+        return self.record(session, strategy, price, {**reason, "trade_id": trade.id}, FILLED)

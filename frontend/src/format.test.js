@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { conditionLabel, fmtPct, indicatorLabel, PRESETS, speechText, toApiConditions, toFormCondition, toStrategyPayload } from './format.js'
+import { conditionLabel, fmtPct, indicatorLabel, orderStatusLabel, PRESETS, speechText, toApiConditions, toFormCondition, toStrategyPayload } from './format.js'
 
 describe('indicatorLabel', () => {
   it('지표 이름과 기간을 표시한다', () => {
@@ -40,6 +40,15 @@ describe('toStrategyPayload', () => {
     expect(c.left).toEqual({ name: 'PRICE' })
     const rsi = toStrategyPayload({ ...form, ...PRESETS[0], name: 'y' }).conditions[0]
     expect(rsi.right).toBe(30)
+  })
+})
+
+describe('orderStatusLabel', () => {
+  it('주문 상태를 한글로 표시한다', () => {
+    expect(orderStatusLabel('FILLED')).toBe('체결')
+    expect(orderStatusLabel('REJECTED')).toBe('거부')
+    expect(orderStatusLabel('SUBMITTED')).toBe('접수')
+    expect(orderStatusLabel(undefined)).toBe('체결')
   })
 })
 
