@@ -91,7 +91,11 @@ export const PRESETS = [
 
 // 음성 알림 문장
 export function speechText(alert) {
-  if (alert.type === 'order') return alert.message.replace(/@.*/, '').replace(/\[.*?\]/, '').trim() + ' 주문 체결'
+  if (alert.type === 'order') {
+    const head = alert.message.replace(/\[.*?\]/, '').replace(/( 주문 (접수|거부)| @).*/, '').trim()
+    const status = alert.order?.status ?? 'FILLED'
+    return `${head} ${status === 'REJECTED' ? '주문 거부' : status === 'PENDING' ? '주문 접수' : '주문 체결'}`
+  }
   if (alert.type === 'anomaly') return `${alert.name} 이상거래 감지`
   return alert.message ?? ''
 }

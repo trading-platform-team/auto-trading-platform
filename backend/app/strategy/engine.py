@@ -18,7 +18,7 @@ from sqlalchemy import select
 
 from app import db
 from app.market.cache import get_ticks
-from app.strategy.broker import PaperBroker
+from app.strategy.broker import FILLED, PENDING, Broker, PaperBroker
 from app.strategy.evaluator import evaluate
 from app.strategy.models import Strategy
 
@@ -26,7 +26,7 @@ log = logging.getLogger("uvicorn.error")
 
 ALERTS_KEY = "alerts"
 MAX_ALERTS = 100
-broker = PaperBroker()
+broker: Broker = PaperBroker()  # 다른 Broker로 바꿔도 엔진 코드는 그대로
 
 
 def _load_strategies(symbol: str) -> list[Strategy]:
@@ -47,7 +47,20 @@ def _place(strategy_id: int, price: float, reason: dict) -> dict:
             "side": order.side,
             "quantity": order.quantity,
             "price": order.price,
+            "status": order.status,
+            "reject_reason": order.reason.get("reject_reason", ""),
         }
+
+
+def order_message(strategy_name: str, stock_name: str, order: dict) -> str:
+    """주문 결과(체결·접수·거부)에 맞는 알림 문장"""
+    side = "매수" if order["side"] == "buy" else "매도"
+    head = f"[{strategy_name}] {stock_name} {order['quantity']}주 {side}"
+    if order["status"] == FILLED:
+        return f"{head} @ {order['price']:,.0f}원"
+    if order["status"] == PENDING:
+        return f"{head} 주문 접수 @ {order['price']:,.0f}원"
+    return f"{head} 주문 거부: {order['reject_reason']}"
 
 
 async def push_alert(r, alert: dict) -> None:
@@ -60,7 +73,7 @@ async def push_alert(r, alert: dict) -> None:
 
 
 async def on_tick(r, tick: dict) -> list[dict]:
-    """시세 1건 처리. 실행된 주문 목록을 반환한다."""
+    """시세 1건 처리. 이번에 낸 주문 결과 목록(거부 포함)을 반환한다."""
     strategies = await asyncio.to_thread(_load_strategies, tick["symbol"])
     if not strategies:
         return []
@@ -79,8 +92,7 @@ async def on_tick(r, tick: dict) -> list[dict]:
         alert = {
             "type": "order",
             "user_id": order["user_id"],  # 주문 알림은 전략 주인에게만 전달
-            "message": f"[{st.name}] {tick['name']} {st.quantity}주 {'매수' if st.side == 'buy' else '매도'} "
-            f"@ {tick['price']:,}원",
+            "message": order_message(st.name, tick["name"], order),
             "order": order,
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }
