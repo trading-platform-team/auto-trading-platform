@@ -9,6 +9,7 @@ import OrderTable from './components/OrderTable.jsx'
 import PaperTradingPage from './components/PaperTradingPage.jsx'
 import PriceChart from './components/PriceChart.jsx'
 import PriceTable from './components/PriceTable.jsx'
+import LiveTradingPage from './components/realtrading/LiveTradingPage.jsx'
 import StrategyPanel from './components/StrategyPanel.jsx'
 import TimeMachinePage from './components/timemachine/TimeMachinePage.jsx'
 import { speechText } from './format.js'
@@ -88,11 +89,7 @@ function Dashboard({ username }) {
           <TimeMachinePage />
         </main>
       ) : (
-      <>
-      <section className="live-mode-notice" role="status">
-        <b>실거래 연결 준비 중</b>
-        <span>현재 화면은 모의 시세와 모의 주문을 사용합니다. 키움 계좌가 연결되기 전에는 실제 주문이 실행되지 않습니다.</span>
-      </section>
+      <LiveTradingPage>
       <main className="grid">
         <div className="col-left">
           <PriceTable selected={selected} onSelect={setSelected} anomalySymbols={recentAnomalySymbols} />
@@ -107,7 +104,7 @@ function Dashboard({ username }) {
           <AnomalyPanel anomalies={anomalies} onSelect={setSelected} />
         </div>
       </main>
-      </>
+      </LiveTradingPage>
       )}
     </div>
   )

@@ -17,6 +17,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.api.market import get_quote
 from app.auth.deps import CurrentUser
 from app.db import get_session
 from app.kiwoom import parse
@@ -163,11 +164,15 @@ async def create_order(body: OrderIn, request: Request, user: CurrentUser):
     """직접 주문. 자동매매와 같은 위험 제한을 거친다. 막히면 status가 BLOCKED/REJECTED"""
     r = request.app.state.redis
     ref = body.price
-    if ref is None:
-        q = await r.hget("price:latest", body.symbol)
-        if not q:
-            raise HTTPException(400, "시장가 주문은 현재 시세가 있어야 합니다 (종목을 먼저 조회하세요)")
-        ref = json.loads(q)["price"]
+    if ref is None:  # 시장가: 실시간 시세 → 없으면 현재가 조회 (장 마감 후·막 연 종목)
+        raw = await r.hget("price:latest", body.symbol)
+        if raw:
+            ref = json.loads(raw)["price"]
+        else:
+            q = await get_quote(request.app.state, body.symbol)
+            if not q or not q.get("price"):
+                raise HTTPException(400, "시장가 주문 기준가를 알 수 없습니다 (현재가가 없어요)")
+            ref = q["price"]
     return await broker.place_order(r, user["id"], body.symbol, body.side, body.quantity, ref,
                                     limit_price=body.price, reason={"manual": True})
 

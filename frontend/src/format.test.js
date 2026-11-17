@@ -24,6 +24,8 @@ describe('toStrategyPayload', () => {
     const body = toStrategyPayload(form)
     expect(body.name).toBe('테스트')
     expect(body.quantity).toBe(10)
+    expect(body.account).toBe('paper')
+    expect(toStrategyPayload({ ...form, account: 'kiwoom' }).account).toBe('kiwoom')
     expect(body.conditions[0]).toEqual({
       left: { name: 'SMA', period: 5 },
       op: 'cross_up',

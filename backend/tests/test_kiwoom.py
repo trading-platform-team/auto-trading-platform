@@ -313,6 +313,13 @@ def test_market_order_needs_price(client, fake_redis):
     assert o["status"] == "SUBMITTED" and o["order_type"] == "market" and o["price"] == 70000
 
 
+def test_market_order_uses_kiwoom_quote_without_realtime(client, fake, fake_redis):
+    client.app.state.stocks = StockService(fake_redis, team_client(fake))
+    activate(client)
+    o = client.post("/trading/kiwoom/orders", json={"symbol": "035720", "side": "buy", "quantity": 1}).json()
+    assert o["status"] == "SUBMITTED" and o["price"] == 72000  # 실시간 시세가 없어 현재가 조회로 기준가
+
+
 def test_daily_loss_limit_disables_trading(client, fake):
     activate(client, loss=100_000)
     client.post("/trading/kiwoom/orders", json={"symbol": "005930", "side": "buy", "quantity": 1, "price": 70000})
