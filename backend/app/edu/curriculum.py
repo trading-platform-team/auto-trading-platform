@@ -17,6 +17,27 @@ UNITS = [
         ],
     },
     {
+        "id": "mk",
+        "title": "시장 알아보기",
+        "description": "코스피·코스닥, 거래 시간과 규칙, 시가총액, ETF와 배당",
+        "lessons": [
+            {"id": "mk-l1", "title": "코스피와 코스닥", "available": True},
+            {"id": "mk-l2", "title": "거래 시간과 규칙", "available": True},
+            {"id": "mk-l3", "title": "시가총액과 종목 분류", "available": True},
+            {"id": "mk-l4", "title": "ETF와 배당", "available": True},
+        ],
+    },
+    {
+        "id": "fa",
+        "title": "기업 가치 읽기",
+        "description": "재무제표, EPS·PER, BPS·PBR·ROE로 무엇을 살지 고르기",
+        "lessons": [
+            {"id": "fa-l1", "title": "재무제표 기초", "available": True},
+            {"id": "fa-l2", "title": "EPS와 PER", "available": True},
+            {"id": "fa-l3", "title": "BPS·PBR·ROE", "available": True},
+        ],
+    },
+    {
         "id": "u2",
         "title": "차트 읽기",
         "description": "캔들, 추세, 거래량, 이동평균선",
@@ -54,6 +75,16 @@ UNITS = [
             {"id": "u5-l1", "title": "손절과 익절", "available": True},
             {"id": "u5-l2", "title": "손익비", "available": True},
             {"id": "u5-l3", "title": "투자 비중", "available": True},
+        ],
+    },
+    {
+        "id": "ev",
+        "title": "꼭 알아야 할 위험 신호",
+        "description": "공시와 증자, 빚투와 공매도, 시장경보와 상장폐지",
+        "lessons": [
+            {"id": "ev-l1", "title": "공시와 주식 수의 변화", "available": True},
+            {"id": "ev-l2", "title": "빚투와 공매도", "available": True},
+            {"id": "ev-l3", "title": "피해야 할 신호", "available": True},
         ],
     },
     {

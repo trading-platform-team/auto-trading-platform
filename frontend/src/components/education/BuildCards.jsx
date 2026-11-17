@@ -131,7 +131,7 @@ export function DeployCard({ card, onCheck, onPredict, locked }) {
     <div className="card-body">
       <h3>{card.q}</h3>
       <div className="deploy-box">
-        <div className="deploy-title">🎓 {s.name}</div>
+        <div className="deploy-title">{s.name}</div>
         <div className="pb-grid">
           <span>종목</span><b>{SYMBOLS.find(([c]) => c === s.symbol)?.[1]}</b>
           <span>매매</span><b className={s.side === 'buy' ? 'up' : 'down'}>{s.side === 'buy' ? '매수' : '매도'} {s.quantity}주</b>
