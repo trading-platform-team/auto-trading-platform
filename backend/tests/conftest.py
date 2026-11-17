@@ -11,6 +11,8 @@ def isolated_settings(monkeypatch):
     """테스트에서 실제 외부 API를 호출하거나 운영용 비밀값을 사용하지 않는다."""
     security.set_secret("test-secret")
     monkeypatch.setattr(settings, "external_events_enabled", False)
+    monkeypatch.setattr(settings, "kiwoom_app_key", "")  # 키움은 가짜 서버(tests/test_stocks.py)로만 시험
+    monkeypatch.setattr(settings, "kiwoom_secret_key", "")
     yield
 
 

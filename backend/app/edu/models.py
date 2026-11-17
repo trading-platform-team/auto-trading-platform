@@ -69,3 +69,15 @@ class EduTrade(Base):
     fee: Mapped[float] = mapped_column(Float)
     realized_pnl: Mapped[float | None] = mapped_column(Float, nullable=True)  # 매도 시 실현손익
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
+class EduWatch(Base):
+    """가상계좌 연습 관심종목"""
+
+    __tablename__ = "edu_watchlist"
+    __table_args__ = (UniqueConstraint("user_id", "symbol", name="uq_edu_watch"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(Integer, index=True)
+    symbol: Mapped[str] = mapped_column(String(20))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
