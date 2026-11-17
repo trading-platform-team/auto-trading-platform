@@ -1,0 +1,68 @@
+/* 실거래 화면 (styles.css의 색 변수 사용) */
+.rt-title { font-size: 17px; }
+.rt-grid { display: grid; gap: 14px; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); }
+.rt-col { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+@media (max-width: 1000px) { .rt-grid { grid-template-columns: 1fr; } }
+
+.rt-pill { font-size: 12px; padding: 3px 10px; border-radius: 99px; background: var(--card-2); color: var(--muted); border: 1px solid var(--line); }
+.rt-pill.on { color: var(--ok); border-color: rgba(46, 204, 113, 0.4); }
+.rt-pill.real { color: #fff; background: var(--up); border-color: var(--up); }
+
+/* 검색 */
+.rt-search { width: 100%; padding: 9px 12px; font-size: 15px; }
+.rt-results { list-style: none; margin: 8px 0 0; padding: 0; max-height: 240px; overflow-y: auto; }
+.rt-results button {
+  width: 100%; display: flex; align-items: center; gap: 8px; padding: 8px 10px; text-align: left;
+  background: none; border: none; border-radius: 6px; color: var(--text); cursor: pointer; font: inherit;
+}
+.rt-results button:hover, .rt-results button.on { background: var(--card-2); }
+.rt-results button span:first-child { flex: 1; }
+.tag.warn { color: var(--warn); }
+
+/* 현재가 */
+.rt-quote { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+.rt-price { font-size: 26px; }
+.rt-ohlc { display: flex; gap: 14px; margin: 0 0 0 auto; flex-wrap: wrap; }
+.rt-ohlc div { display: flex; gap: 4px; font-size: 12px; }
+.rt-ohlc dt { color: var(--muted); }
+.rt-ohlc dd { margin: 0; }
+
+/* 주문 */
+.rt-order { display: flex; flex-direction: column; gap: 10px; background: var(--card-2); border-radius: 8px; padding: 12px; }
+.rt-side { align-self: flex-start; }
+.rt-side button.on.buy, .rt-submit.buy { background: var(--up); border-color: var(--up); }
+.rt-side button.on.sell, .rt-submit.sell { background: var(--down); border-color: var(--down); }
+.rt-order output { padding: 6px 0; color: var(--text); }
+.rt-submit { padding: 9px; font-size: 15px; }
+.rt-submit:disabled { opacity: 0.6; cursor: wait; }
+
+/* 설정 */
+.rt-settings { display: flex; flex-direction: column; gap: 10px; }
+.rt-settings.on { border-color: rgba(46, 204, 113, 0.4); }
+.rt-settings .card-head { margin-bottom: 0; }
+.rt-env { align-self: flex-start; }
+.rt-warn { margin: 0; }
+.rt-limits { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.rt-settings > .btn { align-self: flex-start; }
+.rt-settings > .btn:disabled { opacity: 0.5; cursor: default; }
+.rt-activate { border-top: 1px solid var(--line); padding-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+.rt-activate p { margin: 0; }
+.rt-confirm { display: flex; gap: 6px; }
+.rt-confirm input { flex: 1; min-width: 0; }
+.rt-confirm .btn:disabled { opacity: 0.5; cursor: default; }
+.btn.rt-stop { align-self: flex-start; color: #fff; background: var(--up); border-color: var(--up); font-weight: 600; }
+
+/* 계좌 */
+.rt-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; margin-bottom: 10px; }
+.rt-loss { margin-bottom: 10px; }
+.rt-loss-head { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+.rt-bar { height: 6px; border-radius: 99px; background: var(--card-2); overflow: hidden; }
+.rt-bar i { display: block; height: 100%; background: var(--warn); transition: width 0.3s; }
+.rt-bar i.danger { background: var(--up); }
+
+/* 주문 상태 */
+.rt-status { font-size: 12px; padding: 1px 7px; border-radius: 4px; background: var(--card-2); }
+.rt-status.st-ok { color: var(--ok); }
+.rt-status.st-wait { color: var(--warn); }
+.rt-status.st-bad { color: var(--up); }
+.rt-status.st-off { color: var(--muted); }

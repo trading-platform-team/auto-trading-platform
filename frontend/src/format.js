@@ -55,6 +55,7 @@ export function toStrategyPayload(form) {
     quantity: Number(form.quantity),
     cooldown_sec: Number(form.cooldown_sec),
     enabled: true,
+    account: form.account === 'kiwoom' ? 'kiwoom' : 'paper', // kiwoom: 실거래 설정으로 키움 주문
     conditions: form.conditions.map((c) => ({
       left: toIndicator(c.left),
       op: c.op,
@@ -92,9 +93,16 @@ export const PRESETS = [
 // 음성 알림 문장
 export function speechText(alert) {
   if (alert.type === 'order') {
-    const head = alert.message.replace(/\[.*?\]/, '').replace(/( 주문 (접수|거부)| @).*/, '').trim()
-    const status = alert.order?.status ?? 'FILLED'
-    return `${head} ${status === 'REJECTED' ? '주문 거부' : status === 'PENDING' ? '주문 접수' : '주문 체결'}`
+    // 모의: "[전략] 삼성전자 10주 매수 @ 70,000원" / "... 주문 거부: 사유"
+    // 키움: "[전략] 키움 주문 접수: 삼성전자 10주 매수 (메시지)"
+    const kiwoom = /^\s*(\[.*?\]\s*)?키움 주문/.test(alert.message)
+    const head = alert.message
+      .replace(/\[.*?\]\s*/, '')
+      .replace(/^키움 주문 \S+: /, '')
+      .replace(/( 주문 (접수|거부)| @| \().*/, '')
+      .trim()
+    const label = { REJECTED: '주문 거부', SUBMITTED: '주문 접수', BLOCKED: '주문 차단' }[alert.order?.status] ?? '주문 체결'
+    return `${kiwoom ? '키움 ' : ''}${head} ${label}`
   }
   if (alert.type === 'anomaly') return `${alert.name} 이상거래 감지`
   return alert.message ?? ''

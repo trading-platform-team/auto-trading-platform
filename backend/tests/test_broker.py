@@ -8,7 +8,7 @@ from app import db
 from app.market.cache import save_tick
 from app.market.sources import make_tick
 from app.strategy import engine
-from app.strategy.broker import FILLED, PENDING, REJECTED, Broker, PaperBroker
+from app.strategy.broker import FILLED, REJECTED, SUBMITTED, Broker, PaperBroker
 from app.strategy.engine import ALERTS_KEY, on_tick
 from app.strategy.models import Order, Strategy
 
@@ -22,11 +22,11 @@ class RejectBroker(Broker):
         return self.record(session, strategy, price, reason, REJECTED, "현금이 부족해요")
 
 
-class PendingBroker(Broker):
-    name = "pending"
+class SubmittedBroker(Broker):
+    name = "submitted"
 
     def place(self, session, strategy, price, reason):
-        return self.record(session, strategy, price, reason, PENDING)
+        return self.record(session, strategy, price, reason, SUBMITTED)
 
 
 def _strategy(user_id=1) -> int:
@@ -80,9 +80,9 @@ async def test_engine_records_rejected_order_and_alerts(sqlite_db, fake_redis, m
 
 
 @pytest.mark.asyncio
-async def test_engine_alert_for_pending_and_filled(sqlite_db, fake_redis, monkeypatch):
+async def test_engine_alert_for_submitted_and_filled(sqlite_db, fake_redis, monkeypatch):
     _strategy()
-    monkeypatch.setattr(engine, "broker", PendingBroker())
+    monkeypatch.setattr(engine, "broker", SubmittedBroker())
     await on_tick(fake_redis, await _tick(fake_redis))
     assert json.loads(await fake_redis.lindex(ALERTS_KEY, 0))["message"].endswith("주문 접수 @ 70,000원")
 

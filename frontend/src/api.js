@@ -95,6 +95,18 @@ export const api = {
   tmOrder: (id, side, quantity) =>
     request(`/timemachine/sessions/${id}/order`, { method: 'POST', body: JSON.stringify({ side, quantity }) }),
   tmFinish: (id) => request(`/timemachine/sessions/${id}/finish`, { method: 'POST' }),
+  // 실거래 화면 현재가 (보는 동안 실시간 구독 대상)
+  quote: (symbol) => request(`/market/quote/${symbol}`),
+  watch: (symbol) => request(`/market/watch/${symbol}`, { method: 'POST' }),
+  // 실거래 (사용자 키움 계좌)
+  kwSettings: () => request('/trading/kiwoom/settings'),
+  kwSaveSettings: (body) => request('/trading/kiwoom/settings', { method: 'PUT', body: JSON.stringify(body) }),
+  kwActivate: (confirm) => request('/trading/kiwoom/activate', { method: 'POST', body: JSON.stringify({ confirm }) }),
+  kwDeactivate: () => request('/trading/kiwoom/deactivate', { method: 'POST' }),
+  kwAccount: () => request('/trading/kiwoom/account'),
+  kwOrders: (limit = 30) => request(`/trading/kiwoom/orders?limit=${limit}`),
+  kwOrder: (body) => request('/trading/kiwoom/orders', { method: 'POST', body: JSON.stringify(body) }),
+  kwCancel: (id) => request(`/trading/kiwoom/orders/${id}/cancel`, { method: 'POST' }),
 }
 
 export function alertsSocketUrl() {

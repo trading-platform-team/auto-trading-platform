@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 IndicatorName = Literal["PRICE", "SMA", "EMA", "RSI", "BB_UPPER", "BB_MIDDLE", "BB_LOWER"]
 Operator = Literal["<", "<=", ">", ">=", "cross_up", "cross_down"]
@@ -35,6 +35,12 @@ class StrategyIn(BaseModel):
     quantity: int = Field(default=1, ge=1)
     cooldown_sec: int = Field(default=60, ge=0)
     enabled: bool = True
+    account: Literal["paper", "kiwoom"] = "paper"  # kiwoom: 실거래 설정(서버·한도)으로 키움에 주문
+
+    @field_validator("account", mode="before")
+    @classmethod
+    def _default_account(cls, v):
+        return v or "paper"  # 컬럼 추가 전에 만든 전략은 NULL
 
 
 class StrategyOut(StrategyIn):

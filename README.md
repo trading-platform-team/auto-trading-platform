@@ -126,7 +126,9 @@ npm run dev     # http://localhost:5173
 |---|---|---|
 | POST | `/auth/register`, `/auth/login` | 회원가입 / 로그인 (JWT 발급) |
 | GET | `/auth/me` | 내 계정 |
-| GET | `/market/prices` | 전 종목 최신 시세 |
+| GET | `/market/quote/{종목코드}` | 현재가 + 실시간 구독 대상에 추가 (실거래 화면) |
+| POST | `/market/watch/{종목코드}` | 보고 있는 종목 → 실시간 구독 대상 |
+| GET | `/market/prices` | 실시간 구독 중인 종목 최신 시세 |
 | GET | `/market/ticks/{종목코드}` | 종목별 최근 시세 |
 | GET | `/market/chart/{종목코드}` | 차트용 시세 + 지표 시계열 |
 | GET | `/indicators/{종목코드}` | SMA·RSI·볼린저밴드 최신값 |
@@ -145,6 +147,10 @@ npm run dev     # http://localhost:5173
 | POST | `/timemachine/sessions` | 직접 매매 세션 시작 (과거 날짜로 이동) |
 | GET | `/timemachine/sessions/{id}` | 현재 날짜까지의 차트·계좌 |
 | POST | `/timemachine/sessions/{id}/step`, `/order`, `/finish` | 시간 진행 / 주문 / 종료 후 결과 비교 |
+| GET / PUT | `/trading/kiwoom/settings` | 실거래 설정 (모의·실전 서버, 1회 주문 한도, 일일 손실 한도) |
+| POST | `/trading/kiwoom/activate`, `/deactivate` | 실거래 켜기(확인 문구) / 긴급 정지 |
+| GET | `/trading/kiwoom/account` | 키움 계좌 잔고·보유 종목·오늘 손실 |
+| POST / GET | `/trading/kiwoom/orders` | 키움 주문 / 내역 (체결 동기화) ([설명](docs/kiwoom.md)) |
 
 전략 예시 (RSI가 30 아래이고 현재가가 볼린저밴드 하단을 뚫으면 10주 매수):
 

@@ -11,7 +11,7 @@ export default function StrategyPanel({ symbols, selected, beginner = false }) {
   const { data: strategies } = usePolling(api.strategies, 5000, [tick])
   const refresh = () => setTick((t) => t + 1)
   const [msg, setMsg] = useState(null)
-  const [form, setForm] = useState({ name: '', symbol: selected, side: 'buy', quantity: 10, cooldown_sec: 60, conditions: [emptyCond()] })
+  const [form, setForm] = useState({ name: '', symbol: selected, side: 'buy', quantity: 10, cooldown_sec: 60, account: 'paper', conditions: [emptyCond()] })
   const set = (patch) => setForm((f) => ({ ...f, ...patch }))
 
   const applyPreset = (p) => set({ name: p.name, side: p.side, conditions: p.conditions.map((c) => ({ ...emptyCond(), ...c })), symbol: selected })
@@ -20,7 +20,9 @@ export default function StrategyPanel({ symbols, selected, beginner = false }) {
     e.preventDefault()
     try {
       await api.createStrategy(toStrategyPayload({ ...form, name: form.name || '내 전략' }))
-      setMsg({ ok: true, text: '전략이 등록됐어요. 조건을 만족하면 자동으로 모의 주문이 실행됩니다.' })
+      setMsg({ ok: true, text: form.account === 'kiwoom'
+        ? '전략이 등록됐어요. 조건을 만족하면 실거래 설정(서버·한도)으로 키움에 주문합니다.'
+        : '전략이 등록됐어요. 조건을 만족하면 자동으로 모의 주문이 실행됩니다.' })
       refresh()
     } catch (err) {
       setMsg({ ok: false, text: `등록 실패: ${err.message}` })
@@ -67,6 +69,14 @@ export default function StrategyPanel({ symbols, selected, beginner = false }) {
           </label>
           <label data-explain={beginner ? 'quantity' : undefined}>수량<input type="number" min={1} value={form.quantity} onChange={(e) => set({ quantity: e.target.value })} /></label>
           <label data-explain={beginner ? 'cooldown' : undefined}>쿨다운(초)<input type="number" min={0} value={form.cooldown_sec} onChange={(e) => set({ cooldown_sec: e.target.value })} /></label>
+          {!beginner && (
+            <label>주문 계좌
+              <select value={form.account} onChange={(e) => set({ account: e.target.value })}>
+                <option value="paper">모의 주문</option>
+                <option value="kiwoom">키움 실거래</option>
+              </select>
+            </label>
+          )}
         </div>
 
         <p className="muted small" data-explain={beginner ? 'condition' : undefined}>조건 (모두 만족하면 주문)</p>
@@ -85,6 +95,7 @@ export default function StrategyPanel({ symbols, selected, beginner = false }) {
             <div>
               <b>{s.name}</b>{' '}
               <span className={`tag ${s.side === 'buy' ? 'up' : 'down'}`}>{s.side === 'buy' ? '매수' : '매도'}</span>{' '}
+              {s.account === 'kiwoom' && <span className="tag warn" title="키움 계좌로 주문">키움</span>}{' '}
               <span className="muted">{nameOf(s.symbol)} · {s.quantity}주</span>
               <div className="muted small">{s.conditions.map(conditionLabel).join('  그리고  ')}</div>
             </div>
