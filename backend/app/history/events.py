@@ -119,3 +119,16 @@ def load_events(symbol: str, start: date | None = None, end: date | None = None)
         and (start_iso is None or event["date"] >= start_iso)
         and (end_iso is None or event["date"] <= end_iso)
     ]
+
+
+def merge_events(*groups: list[dict]) -> list[dict]:
+    """URL과 제목·날짜가 같은 사건을 제거하고 시간순으로 합친다."""
+    merged: list[dict] = []
+    seen: set[tuple[str, str]] = set()
+    for event in (event for group in groups for event in group):
+        key = (event.get("source_url", ""), f"{event['date']}:{event['title']}")
+        if key[0] in {item[0] for item in seen if item[0]} or key in seen:
+            continue
+        seen.add(key)
+        merged.append(event)
+    return sorted(merged, key=lambda item: (item["date"], item["id"]))

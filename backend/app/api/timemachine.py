@@ -14,7 +14,8 @@ from app.backtest.engine import run_backtest
 from app.backtest.presets import PRESETS
 from app.core.config import settings
 from app.db import get_session
-from app.history.events import load_events
+from app.history.events import load_events, merge_events
+from app.history.external_events import fetch_disclosure_preview, load_external_events
 from app.history.service import load_bars, symbols_summary
 from app.market.sources import DEFAULT_SYMBOLS
 from app.strategy.indicators import chart_series, clean
@@ -44,12 +45,27 @@ def history_symbols(s: SessionDep):
     return symbols_summary(s)
 
 
+async def _events(symbol: str, start: date | None = None, end: date | None = None) -> list[dict]:
+    return merge_events(load_events(symbol, start, end), await load_external_events(symbol, start, end))
+
+
 @router.get("/history/{symbol}/events")
-def history_events(symbol: str, start: date | None = None, end: date | None = None):
+async def history_events(symbol: str, start: date | None = None, end: date | None = None):
     """공식 발표를 바탕으로 정리한 종목·시장 주요 사건"""
     if start and end and start > end:
         raise HTTPException(422, "시작일은 종료일보다 늦을 수 없습니다")
-    return load_events(symbol, start, end)
+    return await _events(symbol, start, end)
+
+
+@router.get("/history/events/{rcept_no}/preview")
+async def disclosure_preview(rcept_no: str):
+    """공시 이미지 미리보기 생성에 사용할 원문 텍스트 일부를 반환한다."""
+    if len(rcept_no) != 14 or not rcept_no.isdigit():
+        raise HTTPException(422, "올바른 공시 접수번호가 아닙니다")
+    try:
+        return await fetch_disclosure_preview(rcept_no)
+    except (httpx.HTTPError, ValueError) as exc:
+        raise HTTPException(502, str(exc)) from exc
 
 
 @router.get("/history/{symbol}")
@@ -141,7 +157,7 @@ async def _anomaly_marks(chart: list[dict]) -> list[dict]:
 async def _view(st: dict, bars: list[dict]) -> dict:
     v = tm.view(st, bars)
     v["anomalies"] = await _anomaly_marks(v["chart"])
-    v["events"] = load_events(
+    v["events"] = await _events(
         st["symbol"],
         date.fromisoformat(v["chart"][0]["date"]),
         date.fromisoformat(v["date"]),

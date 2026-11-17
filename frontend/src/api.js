@@ -70,6 +70,7 @@ export const api = {
     if (end) query.set('end', end)
     return request(`/history/${symbol}/events${query.size ? `?${query}` : ''}`)
   },
+  disclosurePreview: (rceptNo) => request(`/history/events/${rceptNo}/preview`),
   // 타임머신
   historySymbols: () => request('/history/symbols'),
   backtestPresets: () => request('/backtest/presets'),
