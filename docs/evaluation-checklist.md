@@ -30,6 +30,7 @@
 | nginx | 프론트 정적 파일 서빙, API 리버스 프록시 |
 | gitleaks | 민감정보 커밋 검사 |
 | Pretendard | 웹 폰트 (한글 가독성, OFL-1.1 라이선스) |
+| Lucide | 아이콘 (lucide-react, ISC 라이선스) |
 
 ## 4. GitHub Actions (5개 이상)
 
