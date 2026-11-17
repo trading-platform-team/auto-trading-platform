@@ -19,6 +19,16 @@ class OrderRejected(ValueError):
     pass
 
 
+def realized_pnl(avg_price: float, price: float, quantity: int, sell_fee: float) -> int:
+    """매도 실현손익 = 매도 금액 − 매도 수수료 − (매입 금액 + 매수 수수료)
+
+    평균 단가에는 수수료가 들어 있지 않으므로, 판 수량만큼의 매수 수수료를 평균 단가 기준으로 계산해 뺀다.
+    (매수할 때마다 원 단위로 반올림한 실제 수수료와는 1원 안팎 차이가 날 수 있다)
+    """
+    buy_fee = avg_price * quantity * FEE_PCT / 100
+    return round((price - avg_price) * quantity - sell_fee - buy_fee)
+
+
 def get_or_create(s: Session, user_id: int) -> EduAccount:
     acc = s.get(EduAccount, user_id)
     if not acc:
@@ -54,7 +64,7 @@ def place_order(s: Session, user_id: int, symbol: str, side: str, quantity: int,
         if quantity > held:
             raise OrderRejected(f"보유 수량이 부족해요. 지금 {held}주 가지고 있어요")
         acc.cash += price * quantity - fee
-        pnl = round((price - pos.avg_price) * quantity - fee)
+        pnl = realized_pnl(pos.avg_price, price, quantity, fee)
         pos.quantity -= quantity
         if pos.quantity == 0:
             s.delete(pos)
