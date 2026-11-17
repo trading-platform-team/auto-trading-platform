@@ -102,6 +102,15 @@ npm run dev     # http://localhost:5173
 | Kafka | localhost:9092 |
 | Redis | localhost:6379 |
 
+## 가상계좌 연습 (키움 실제 시세)
+
+모의투자 → 💰 가상계좌 연습에서 코스피·코스닥 전 종목을 검색하거나 시장·업종별로 골라, 키움 실제 현재가로 가상 매매합니다.
+
+- `.env`에 키움 **모의투자** App Key·Secret을 넣으면 자동으로 키움 시세를 씁니다 (키는 절대 커밋하지 않기)
+- 사용하는 키움 API: ka10099(종목 목록, 하루 1회), ka10095(여러 종목 현재가, 5초 캐시), ka10081(일봉, 10분 캐시)
+- 키가 없거나 키움 호출이 실패하면(IP 미등록 8010 등) 가상 시세 5종목으로 자동 대체하고, 화면 위에 원인을 표시합니다
+- 공용 클라이언트 `backend/app/kiwoom/client.py`: 토큰 자동 갱신, 호출 간격 제한, 연속조회 지원 (실시간 시세 연동에서도 재사용 가능)
+
 ## 인증과 민감정보 관리
 
 - 회원가입·로그인 후 받은 JWT를 `Authorization: Bearer <토큰>` 헤더로 보낸다 (유효 12시간)
@@ -121,6 +130,10 @@ npm run dev     # http://localhost:5173
 | GET | `/market/ticks/{종목코드}` | 종목별 최근 시세 |
 | GET | `/market/chart/{종목코드}` | 차트용 시세 + 지표 시계열 |
 | GET | `/indicators/{종목코드}` | SMA·RSI·볼린저밴드 최신값 |
+| GET | `/stocks/status` | 가상계좌 연습 시세 출처(키움/가상)·장 운영 여부 |
+| GET | `/stocks/search?q=`, `/stocks/browse`, `/stocks/sectors` | 종목 검색 / 시장·업종별 목록(시가총액·상승률·하락률·거래량순) / 업종 |
+| GET | `/stocks/{종목코드}`, `/stocks/{종목코드}/daily` | 현재가 / 일봉 (키움 ka10095, ka10081) |
+| GET / PUT / DELETE | `/edu/watchlist`, `/edu/watchlist/{종목코드}` | 가상계좌 연습 관심종목 |
 | POST / GET | `/strategies` | 매매 전략 등록 / 목록 |
 | GET / PUT / DELETE | `/strategies/{id}` | 전략 조회 / 수정 / 삭제 |
 | GET | `/orders` | 모의 주문 내역 |

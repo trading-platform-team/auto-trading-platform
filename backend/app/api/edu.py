@@ -1,15 +1,16 @@
-"""교육 페이지 API (학습 진도, 교육용 가상계좌)"""
+"""교육 페이지 API (학습 진도, 교육용 가상계좌, 관심종목)"""
 
 from typing import Literal
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
+from app.api.stocks import StocksDep
 from app.api.strategies import SessionDep
 from app.auth.deps import CurrentUser
 from app.edu import account, progress
 from app.edu.curriculum import UNITS
-from app.market.cache import get_latest
+from app.stocks.service import QuoteUnavailable, StockNotFound, StockService
 
 router = APIRouter(prefix="/edu", tags=["education"])
 
@@ -43,32 +44,48 @@ def complete(lesson_id: str, body: LessonResultIn, s: SessionDep, user: CurrentU
 
 
 # ---------- 교육용 가상계좌 ----------
-async def _prices(request: Request) -> dict[str, dict]:
-    return {p["symbol"]: p for p in await get_latest(request.app.state.redis)}
+async def _prices(svc: StockService, s, user_id: int) -> dict[str, dict]:
+    """보유·거래 종목의 현재가와 이름 (snapshot용)"""
+    codes = account.symbols(s, user_id)
+    s.rollback()  # 키움 응답을 기다리는 동안 DB 연결을 붙잡지 않도록 반납 (읽기만 했음)
+    if not codes:
+        return {}
+    prices = await svc.quotes(codes)
+    master = await svc.master()
+    for c in codes:  # 시세를 못 받은 종목도 이름은 표시
+        if c not in prices and c in master:
+            prices[c] = {"name": master[c]["name"]}
+    return prices
 
 
 @router.get("/account")
-async def get_account(request: Request, s: SessionDep, user: CurrentUser):
-    return account.snapshot(s, user["id"], await _prices(request))
+async def get_account(svc: StocksDep, s: SessionDep, user: CurrentUser):
+    return account.snapshot(s, user["id"], await _prices(svc, s, user["id"]))
 
 
 class EduOrderIn(BaseModel):
-    symbol: str
+    symbol: str = Field(min_length=6, max_length=6)
     side: Literal["buy", "sell"]
     quantity: int = Field(ge=1, le=1_000_000)
 
 
 @router.post("/account/orders")
-async def order(body: EduOrderIn, request: Request, s: SessionDep, user: CurrentUser):
-    """현재 모의 시세로 시장가 주문"""
-    prices = await _prices(request)
-    price = prices.get(body.symbol, {}).get("price", 0)
+async def order(body: EduOrderIn, svc: StocksDep, s: SessionDep, user: CurrentUser):
+    """현재가(키움 실시세, 연결 안 되면 가상 시세)로 시장가 주문"""
+    try:
+        price = await svc.price(body.symbol)
+    except StockNotFound as e:
+        if svc.status()["loading"]:
+            raise HTTPException(503, "키움 종목 목록을 불러오는 중이에요. 잠시 후 다시 시도해 주세요") from e
+        raise HTTPException(404, "없는 종목이에요") from e
+    except QuoteUnavailable:
+        price = 0  # place_order가 '현재가를 알 수 없어요'로 거부
     before = set(progress.badges(s, user["id"]))
     try:
         trade = account.place_order(s, user["id"], body.symbol, body.side, body.quantity, price)
     except account.OrderRejected as e:
         raise HTTPException(422, str(e)) from e
-    snap = account.snapshot(s, user["id"], prices)
+    snap = account.snapshot(s, user["id"], await _prices(svc, s, user["id"]))
     new_badges = [b for b in progress.badges(s, user["id"]) if b not in before]
     return {
         "trade_id": trade.id,
@@ -80,6 +97,39 @@ async def order(body: EduOrderIn, request: Request, s: SessionDep, user: Current
 
 
 @router.post("/account/reset")
-async def reset(request: Request, s: SessionDep, user: CurrentUser):
+async def reset(svc: StocksDep, s: SessionDep, user: CurrentUser):
     account.reset(s, user["id"])
-    return account.snapshot(s, user["id"], await _prices(request))
+    return account.snapshot(s, user["id"], await _prices(svc, s, user["id"]))
+
+
+# ---------- 관심종목 ----------
+async def _watch_items(svc: StockService, codes: list[str]) -> list[dict]:
+    master = await svc.master()
+    return await svc.with_quotes([master[c] for c in codes if c in master])
+
+
+@router.get("/watchlist")
+async def get_watchlist(svc: StocksDep, s: SessionDep, user: CurrentUser):
+    codes = account.watchlist(s, user["id"])
+    s.rollback()  # DB 연결 반납 후 시세 조회
+    return await _watch_items(svc, codes)
+
+
+@router.put("/watchlist/{code}")
+async def add_watch(code: str, svc: StocksDep, s: SessionDep, user: CurrentUser):
+    try:
+        await svc.info(code)
+        codes = account.add_watch(s, user["id"], code)
+        s.rollback()
+    except StockNotFound as e:
+        raise HTTPException(404, "없는 종목이에요") from e
+    except account.OrderRejected as e:
+        raise HTTPException(422, str(e)) from e
+    return await _watch_items(svc, codes)
+
+
+@router.delete("/watchlist/{code}")
+async def remove_watch(code: str, svc: StocksDep, s: SessionDep, user: CurrentUser):
+    codes = account.remove_watch(s, user["id"], code)
+    s.rollback()
+    return await _watch_items(svc, codes)

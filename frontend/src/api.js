@@ -63,6 +63,21 @@ export const api = {
   eduOrder: (symbol, side, quantity) =>
     request('/edu/account/orders', { method: 'POST', body: JSON.stringify({ symbol, side, quantity }) }),
   eduReset: () => request('/edu/account/reset', { method: 'POST' }),
+  eduWatchlist: () => request('/edu/watchlist'),
+  eduWatchAdd: (code) => request(`/edu/watchlist/${code}`, { method: 'PUT' }),
+  eduWatchRemove: (code) => request(`/edu/watchlist/${code}`, { method: 'DELETE' }),
+  // 종목 (가상계좌 연습)
+  stocksStatus: () => request('/stocks/status'),
+  stocksMarkets: () => request('/stocks/markets'),
+  stocksSectors: (market) => request(`/stocks/sectors?market=${market}`),
+  stocksSearch: (q) => request(`/stocks/search?q=${encodeURIComponent(q)}`),
+  stocksBrowse: ({ market, sector, sort, limit = 30 }) => {
+    const query = new URLSearchParams({ market, sort, limit: String(limit) })
+    if (sector) query.set('sector', sector)
+    return request(`/stocks/browse?${query}`)
+  },
+  stock: (code) => request(`/stocks/${code}`),
+  stockDaily: (code, limit = 120) => request(`/stocks/${code}/daily?limit=${limit}`),
   history: (symbol, start, end) => request(`/history/${symbol}?start=${start}&end=${end}`),
   historyEvents: (symbol, start, end) => {
     const query = new URLSearchParams()

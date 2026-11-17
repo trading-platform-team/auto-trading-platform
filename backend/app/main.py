@@ -7,10 +7,12 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app import db
-from app.api import auth, edu, health, market, strategies, timemachine, ws
+from app.api import auth, edu, health, market, stocks, strategies, timemachine, ws
 from app.auth import security, vault
 from app.core.config import settings
+from app.kiwoom.client import KiwoomClient
 from app.market.consumer import consume_forever
+from app.stocks.service import StockService
 
 log = logging.getLogger("uvicorn.error")
 
@@ -34,10 +36,15 @@ async def lifespan(app: FastAPI):
         secret, source = await asyncio.to_thread(vault.load_jwt_secret)
         security.set_secret(secret)
         log.info("JWT 서명 키 출처: %s", source)
+    kiwoom = KiwoomClient(settings.kiwoom_base_url, settings.kiwoom_app_key, settings.kiwoom_secret_key)
+    app.state.stocks = StockService(app.state.redis, kiwoom)
+    app.state.stocks.warm()  # 종목 목록을 미리 받기 시작
+    log.info("가상계좌 연습 시세: %s", "키움 REST API" if kiwoom.enabled else "가상 시세 (키움 키 없음)")
     task = asyncio.create_task(consume_forever(app.state.redis)) if settings.enable_consumer else None
     yield
     if task:
         task.cancel()
+    await kiwoom.close()
     await app.state.redis.aclose()
 
 
@@ -54,6 +61,7 @@ app.include_router(auth.router)
 app.include_router(edu.router)
 app.include_router(health.router)
 app.include_router(market.router)
+app.include_router(stocks.router)
 app.include_router(strategies.router)
 app.include_router(timemachine.router)
 app.include_router(ws.router)

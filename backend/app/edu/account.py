@@ -1,6 +1,6 @@
 """교육용 가상계좌: 처음 교육 페이지에 들어오면 1,000만 원으로 자동 개설
 
-- 실시간 모의 시세(Redis 최신가)로 시장가 체결
+- 키움 실제 현재가로 시장가 체결 (키움 연결이 안 되면 가상 시세)
 - 현금이 부족하거나 보유 수량이 부족하면 주문 거부
 - 수수료 0.015% (매수·매도 각각), 매도 시 실현손익 기록
 - 초기화하면 처음 상태로 (거래 기록 삭제)
@@ -9,7 +9,7 @@
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
-from app.edu.models import EduAccount, EduPosition, EduTrade
+from app.edu.models import EduAccount, EduPosition, EduTrade, EduWatch
 
 INITIAL_CASH = 10_000_000
 FEE_PCT = 0.015
@@ -123,3 +123,36 @@ def snapshot(s: Session, user_id: int, prices: dict[str, dict]) -> dict:
             for t in trades
         ],
     }
+
+
+def symbols(s: Session, user_id: int) -> list[str]:
+    """평가·표시에 시세가 필요한 종목 (보유 + 최근 거래)"""
+    held = s.scalars(select(EduPosition.symbol).where(EduPosition.user_id == user_id))
+    traded = s.scalars(
+        select(EduTrade.symbol).where(EduTrade.user_id == user_id).order_by(EduTrade.id.desc()).limit(30)
+    )
+    return list(dict.fromkeys([*held, *traded]))
+
+
+# ---------- 관심종목 ----------
+MAX_WATCH = 30
+
+
+def watchlist(s: Session, user_id: int) -> list[str]:
+    return list(s.scalars(select(EduWatch.symbol).where(EduWatch.user_id == user_id).order_by(EduWatch.id)))
+
+
+def add_watch(s: Session, user_id: int, symbol: str) -> list[str]:
+    current = watchlist(s, user_id)
+    if symbol not in current:
+        if len(current) >= MAX_WATCH:
+            raise OrderRejected(f"관심종목은 최대 {MAX_WATCH}개까지 담을 수 있어요")
+        s.add(EduWatch(user_id=user_id, symbol=symbol))
+        s.commit()
+    return watchlist(s, user_id)
+
+
+def remove_watch(s: Session, user_id: int, symbol: str) -> list[str]:
+    s.execute(delete(EduWatch).where(EduWatch.user_id == user_id, EduWatch.symbol == symbol))
+    s.commit()
+    return watchlist(s, user_id)
