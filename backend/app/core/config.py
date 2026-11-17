@@ -23,9 +23,14 @@ class Settings(BaseSettings):
     enable_consumer: bool = True
     enable_engine: bool = True  # 자동매매 엔진
 
+    # 키움 REST API (팀 키, .env에만). 가상계좌 연습 시세·실시간 시세·개발용 모의 주문이 같이 쓴다
     kiwoom_app_key: str = ""
     kiwoom_secret_key: str = ""
     kiwoom_base_url: str = "https://mockapi.kiwoom.com"
+    kiwoom_rest_per_sec: float = 4.0  # 키 하나당 REST 초당 호출 수 (공식 한도 확인 후 조정)
+    kiwoom_max_realtime: int = 100  # 실시간 구독 종목 상한 (공식 한도 확인 후 조정)
+    kiwoom_default_symbols: str = "005930,000660,035420,005380,035720"  # 항상 구독할 종목
+    kiwoom_dev_use_team_key: bool = False  # 사용자 키 등록 기능 전까지 팀 모의 키로 실거래 메뉴 주문 테스트
 
     # 타임머신 외부 사건 수집 (OpenDART 공시 + NAVER API HUB 뉴스)
     external_events_enabled: bool = False

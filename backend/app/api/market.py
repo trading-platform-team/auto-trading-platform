@@ -1,9 +1,50 @@
-from fastapi import APIRouter, Request
+import re
 
+from fastapi import APIRouter, HTTPException, Request
+
+from app.kiwoom.watch import touch
 from app.market.cache import get_latest, get_ticks
+from app.stocks.service import StockNotFound
 from app.strategy.indicators import chart_series, clean
 
 router = APIRouter(prefix="/market", tags=["market"])
+CODE_RE = re.compile(r"^[0-9A-Z]{6}$")
+
+
+def _check_code(symbol: str) -> str:
+    if not CODE_RE.match(symbol):
+        raise HTTPException(422, "종목코드는 6자리입니다 (예: 005930)")
+    return symbol
+
+
+@router.post("/watch/{symbol}")
+async def watch(symbol: str, request: Request):
+    """이 종목을 보고 있다고 알림 → 실시간 구독 대상에 포함 (화면에서 60초마다 호출)"""
+    await touch(request.app.state.redis, _check_code(symbol))
+    return {"symbol": symbol, "watching": True}
+
+
+async def get_quote(app_state, symbol: str) -> dict | None:
+    """현재가 (StockService: 키움 ka10095 5초 캐시, 키가 없으면 가상 시세). 없으면 None"""
+    return (await app_state.stocks.quotes([symbol])).get(symbol)
+
+
+@router.get("/quote/{symbol}")
+async def quote(symbol: str, request: Request):
+    """종목 현재가 (실거래 화면에서 종목을 열 때). 조회하면서 실시간 구독 대상에도 넣는다
+
+    종목 검색은 /stocks/search (가상계좌 연습과 같은 전 종목 목록)
+    """
+    _check_code(symbol)
+    try:
+        await request.app.state.stocks.info(symbol)
+    except StockNotFound as e:
+        raise HTTPException(404, "없는 종목이에요") from e
+    await touch(request.app.state.redis, symbol)
+    q = await get_quote(request.app.state, symbol)
+    if not q or not q.get("price"):
+        raise HTTPException(404, "시세가 없습니다")
+    return q
 
 
 @router.get("/prices")

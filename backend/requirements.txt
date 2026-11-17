@@ -12,3 +12,4 @@ numpy==2.2.1
 sqlalchemy==2.0.36
 psycopg[binary]==3.2.3
 PyJWT==2.10.1
+websockets==13.1

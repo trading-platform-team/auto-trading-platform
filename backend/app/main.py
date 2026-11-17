@@ -7,10 +7,11 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app import db
-from app.api import auth, edu, health, market, stocks, strategies, timemachine, ws
+from app.api import auth, edu, health, market, stocks, strategies, timemachine, trading, ws
 from app.auth import security, vault
 from app.core.config import settings
-from app.kiwoom.client import KiwoomClient
+from app.kiwoom import platform
+from app.kiwoom.watch import publish_strategy_symbols_forever
 from app.market.consumer import consume_forever
 from app.stocks.service import StockService
 
@@ -36,15 +37,17 @@ async def lifespan(app: FastAPI):
         secret, source = await asyncio.to_thread(vault.load_jwt_secret)
         security.set_secret(secret)
         log.info("JWT 서명 키 출처: %s", source)
-    kiwoom = KiwoomClient(settings.kiwoom_base_url, settings.kiwoom_app_key, settings.kiwoom_secret_key)
+    kiwoom = platform.open_team_client()  # 가상계좌 연습·실거래 화면·개발용 주문이 같이 쓰는 팀 키 클라이언트
     app.state.stocks = StockService(app.state.redis, kiwoom)
     app.state.stocks.warm()  # 종목 목록을 미리 받기 시작
     log.info("가상계좌 연습 시세: %s", "키움 REST API" if kiwoom.enabled else "가상 시세 (키움 키 없음)")
-    task = asyncio.create_task(consume_forever(app.state.redis)) if settings.enable_consumer else None
+    tasks = [asyncio.create_task(consume_forever(app.state.redis))] if settings.enable_consumer else []
+    if settings.market_source == "kiwoom":
+        tasks.append(asyncio.create_task(publish_strategy_symbols_forever(app.state.redis)))  # 실시간 구독할 전략 종목
     yield
-    if task:
+    for task in tasks:
         task.cancel()
-    await kiwoom.close()
+    await platform.close_team_client()
     await app.state.redis.aclose()
 
 
@@ -64,4 +67,5 @@ app.include_router(market.router)
 app.include_router(stocks.router)
 app.include_router(strategies.router)
 app.include_router(timemachine.router)
+app.include_router(trading.router)
 app.include_router(ws.router)

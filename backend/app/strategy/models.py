@@ -24,6 +24,8 @@ class Strategy(Base):
     quantity: Mapped[int] = mapped_column(Integer, default=1)
     cooldown_sec: Mapped[int] = mapped_column(Integer, default=60)
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    # 주문 계좌: paper(자체 모의 체결) | kiwoom(사용자 키움 계좌, app/trading)
+    account: Mapped[str | None] = mapped_column(String(10), default="paper", nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
 
