@@ -77,7 +77,8 @@ def test_account_orders(sqlite_db):
         assert pos["return_pct"] == pytest.approx(5.63, abs=0.01)
 
         t = account.place_order(s, 1, "005930", "sell", 20, 75000)
-        assert t.realized_pnl == round(4000 * 20 - t.fee)
+        buy_fee = 71000 * 20 * account.FEE_PCT / 100  # 평균 단가 기준 매수 수수료
+        assert t.realized_pnl == round(4000 * 20 - t.fee - buy_fee)
         snap = account.snapshot(s, 1, {})
         assert snap["positions"] == [] and snap["realized_pnl"] > 0
         assert set(progress.badges(s, 1)) >= {"first_trade", "first_profit"}
@@ -85,6 +86,27 @@ def test_account_orders(sqlite_db):
         account.reset(s, 1)
         snap = account.snapshot(s, 1, {})
         assert snap["cash"] == account.INITIAL_CASH and snap["trades"] == []
+
+
+def test_realized_pnl_includes_both_fees(sqlite_db):
+    """사자마자 같은 가격에 팔면 실현손익은 매수·매도 수수료만큼 손해이고, 현금 감소액과 같아야 한다"""
+    with db.new_session() as s:
+        account.place_order(s, 1, "005930", "buy", 10, 70000)
+        t = account.place_order(s, 1, "005930", "sell", 10, 70000)
+        fees = 2 * round(70000 * 10 * account.FEE_PCT / 100)
+        assert t.realized_pnl == -fees
+        assert account.get_or_create(s, 1).cash - account.INITIAL_CASH == pytest.approx(t.realized_pnl, abs=1)
+
+
+def test_realized_pnl_partial_sell(sqlite_db):
+    """나눠 팔면 판 수량만큼의 매수 수수료만 빠진다"""
+    with db.new_session() as s:
+        account.place_order(s, 1, "005930", "buy", 10, 70000)
+        first = account.place_order(s, 1, "005930", "sell", 4, 72000)
+        second = account.place_order(s, 1, "005930", "sell", 6, 72000)
+        assert first.realized_pnl == account.realized_pnl(70000, 72000, 4, first.fee)
+        total = first.realized_pnl + second.realized_pnl
+        assert account.get_or_create(s, 1).cash - account.INITIAL_CASH == pytest.approx(total, abs=1)
 
 
 # ---------- API ----------
