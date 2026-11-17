@@ -48,6 +48,24 @@ describe('speechText', () => {
     expect(speechText({ type: 'order', message: '[RSI] 삼성전자 10주 매수 @ 70,000원' })).toBe('삼성전자 10주 매수 주문 체결')
     expect(speechText({ type: 'anomaly', name: '카카오' })).toBe('카카오 이상거래 감지')
   })
+
+  it('주문 상태(접수·거부)에 맞게 읽는다', () => {
+    const pending = { type: 'order', message: '[RSI] 삼성전자 10주 매수 주문 접수 @ 70,000원', order: { status: 'SUBMITTED' } }
+    const rejected = { type: 'order', message: '[RSI] 삼성전자 10주 매수 주문 거부: 현금이 부족해요', order: { status: 'REJECTED' } }
+    expect(speechText(pending)).toBe('삼성전자 10주 매수 주문 접수')
+    expect(speechText(rejected)).toBe('삼성전자 10주 매수 주문 거부')
+  })
+
+  it('키움 실거래 주문 알림을 읽는다', () => {
+    const kiwoom = (status, label) => ({
+      type: 'order',
+      message: `[RSI] 키움 주문 ${label}: 삼성전자 10주 매수 (정상 처리)`,
+      order: { status },
+    })
+    expect(speechText(kiwoom('SUBMITTED', '접수'))).toBe('키움 삼성전자 10주 매수 주문 접수')
+    expect(speechText(kiwoom('BLOCKED', '차단'))).toBe('키움 삼성전자 10주 매수 주문 차단')
+    expect(speechText(kiwoom('REJECTED', '거부'))).toBe('키움 삼성전자 10주 매수 주문 거부')
+  })
 })
 
 describe('toFormCondition / toApiConditions', () => {

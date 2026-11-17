@@ -92,7 +92,18 @@ export const PRESETS = [
 
 // 음성 알림 문장
 export function speechText(alert) {
-  if (alert.type === 'order') return alert.message.replace(/@.*/, '').replace(/\[.*?\]/, '').trim() + ' 주문 체결'
+  if (alert.type === 'order') {
+    // 모의: "[전략] 삼성전자 10주 매수 @ 70,000원" / "... 주문 거부: 사유"
+    // 키움: "[전략] 키움 주문 접수: 삼성전자 10주 매수 (메시지)"
+    const kiwoom = /^\s*(\[.*?\]\s*)?키움 주문/.test(alert.message)
+    const head = alert.message
+      .replace(/\[.*?\]\s*/, '')
+      .replace(/^키움 주문 \S+: /, '')
+      .replace(/( 주문 (접수|거부)| @| \().*/, '')
+      .trim()
+    const label = { REJECTED: '주문 거부', SUBMITTED: '주문 접수', BLOCKED: '주문 차단' }[alert.order?.status] ?? '주문 체결'
+    return `${kiwoom ? '키움 ' : ''}${head} ${label}`
+  }
   if (alert.type === 'anomaly') return `${alert.name} 이상거래 감지`
   return alert.message ?? ''
 }
