@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Sprout, Wallet } from 'lucide-react'
 import BeginnerMode from './BeginnerMode.jsx'
 import Practice from './education/Practice.jsx'
 import './education/edu.css'
@@ -24,10 +25,12 @@ export default function PaperTradingPage({
         </div>
         <div className="seg" role="tablist" aria-label="모의투자 화면 선택">
           <button role="tab" aria-selected={tab === 'account'} className={tab === 'account' ? 'on' : ''} onClick={() => setTab('account')}>
-            💰 가상계좌 연습
+            <Wallet size={16} aria-hidden />
+            가상계좌 연습
           </button>
           <button role="tab" aria-selected={tab === 'beginner'} className={tab === 'beginner' ? 'on' : ''} onClick={() => setTab('beginner')}>
-            🌱 초보자 자동매매
+            <Sprout size={16} aria-hidden />
+            초보자 자동매매
           </button>
         </div>
       </section>

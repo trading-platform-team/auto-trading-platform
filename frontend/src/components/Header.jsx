@@ -1,3 +1,4 @@
+import { LogOut, User, Volume2, VolumeX } from 'lucide-react'
 import { api, auth } from '../api.js'
 import { usePolling } from '../hooks.js'
 import { PAGE_INFO, PAGES } from '../navigation.js'
@@ -21,7 +22,10 @@ export default function Header({ voice, onToggleVoice, wsConnected, page, onPage
       <nav className="tabs">
         {PAGES.map((item) => (
           <button key={item.id} className={page === item.id ? 'on' : ''} onClick={() => onPage(item.id)}>
-            <small>{item.eyebrow}</small><span>{item.title}</span>
+            <item.icon size={18} aria-hidden />
+            <span className="tab-text">
+              <small>{item.eyebrow}</small><span>{item.title}</span>
+            </span>
           </button>
         ))}
       </nav>
@@ -40,11 +44,13 @@ export default function Header({ voice, onToggleVoice, wsConnected, page, onPage
           </span>
         </div>
         <button className={`btn ${voice ? 'btn-on' : ''}`} onClick={onToggleVoice}>
-          {voice ? '🔊 음성 알림 켜짐' : '🔈 음성 알림 꺼짐'}
+          {voice ? <Volume2 size={16} aria-hidden /> : <VolumeX size={16} aria-hidden />}
+          {voice ? '음성 알림 켜짐' : '음성 알림 꺼짐'}
         </button>
         <span className="user-chip" title="로그인한 계정">
-          👤 {username}
+          <User size={14} aria-hidden /> {username}
           <button className="icon-btn" onClick={() => auth.set(null)} title="로그아웃">
+            <LogOut size={14} aria-hidden />
             로그아웃
           </button>
         </span>

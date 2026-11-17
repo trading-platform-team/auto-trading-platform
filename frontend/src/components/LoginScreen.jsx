@@ -1,10 +1,11 @@
 import { useState } from 'react'
+import { Bot, History, ShieldAlert } from 'lucide-react'
 import { api, auth } from '../api.js'
 
 const FEATURES = [
-  ['📈', '자동매매', '보조지표 조건을 만들면 실시간 시세로 자동 모의 주문'],
-  ['🛡️', 'AI 이상거래 탐지', '룰 + LOF 모델로 거래량·가격·호가 이상 징후 경보'],
-  ['⏳', '타임머신 트레이딩', '과거로 돌아가 직접 매매하고 전략과 성과 비교'],
+  [Bot, '자동매매', '보조지표 조건을 만들면 실시간 시세로 자동 모의 주문'],
+  [ShieldAlert, 'AI 이상거래 탐지', '룰 + LOF 모델로 거래량·가격·호가 이상 징후 경보'],
+  [History, '타임머신 트레이딩', '과거로 돌아가 직접 매매하고 전략과 성과 비교'],
 ]
 
 function parseError(msg) {
@@ -48,9 +49,9 @@ export default function LoginScreen() {
         </div>
         <p className="muted">보조지표 기반 전략 자동 실행 · AI 이상거래 탐지 · 모든 거래는 모의투자</p>
         <ul className="feature-list">
-          {FEATURES.map(([icon, title, desc]) => (
+          {FEATURES.map(([Icon, title, desc]) => (
             <li key={title}>
-              <span className="feature-icon">{icon}</span>
+              <span className="feature-icon"><Icon size={20} aria-hidden /></span>
               <div>
                 <b>{title}</b>
                 <p className="muted small">{desc}</p>

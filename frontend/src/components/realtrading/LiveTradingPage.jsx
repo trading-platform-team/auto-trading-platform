@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Bot, Briefcase } from 'lucide-react'
 import RealTradingPage from './RealTradingPage.jsx'
 
 // 실거래 메뉴: 자동매매 전략(기존 대시보드) + 키움 계좌·주문
@@ -18,10 +19,12 @@ export default function LiveTradingPage({ children }) {
         </div>
         <div className="seg" role="tablist" aria-label="실거래 화면 선택">
           <button role="tab" aria-selected={tab === 'strategy'} className={tab === 'strategy' ? 'on' : ''} onClick={() => setTab('strategy')}>
-            📈 자동매매 전략
+            <Bot size={16} aria-hidden />
+            자동매매 전략
           </button>
           <button role="tab" aria-selected={tab === 'kiwoom'} className={tab === 'kiwoom' ? 'on' : ''} onClick={() => setTab('kiwoom')}>
-            💼 키움 계좌·주문
+            <Briefcase size={16} aria-hidden />
+            키움 계좌·주문
           </button>
         </div>
       </section>

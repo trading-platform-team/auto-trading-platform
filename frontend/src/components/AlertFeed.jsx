@@ -1,3 +1,4 @@
+import { CircleDollarSign, TriangleAlert } from 'lucide-react'
 import { fmtTime } from '../format.js'
 
 export default function AlertFeed({ alerts, beginner = false }) {
@@ -13,7 +14,9 @@ export default function AlertFeed({ alerts, beginner = false }) {
         <div className="scroll feed">
           {alerts.map((a, i) => (
             <div key={i} className={`feed-item ${a.type} ${a.level ?? ''}`}>
-              <span className="feed-icon">{a.type === 'order' ? '💰' : '⚠️'}</span>
+              <span className="feed-icon">
+                {a.type === 'order' ? <CircleDollarSign size={16} aria-hidden /> : <TriangleAlert size={16} aria-hidden />}
+              </span>
               <span className="feed-msg">{a.message}</span>
               <span className="muted num">{fmtTime(a.timestamp)}</span>
             </div>
