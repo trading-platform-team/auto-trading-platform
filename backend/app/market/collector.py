@@ -1,6 +1,8 @@
 """시세 수집기 (collector 컨테이너)
 
 시세 소스에서 데이터를 받아 Kafka 토픽(stock.price)으로 보낸다.
+- mock: 가상 시세 1초마다
+- kiwoom: 팀 키로 실시간 WebSocket 구독 (구독 종목은 Redis를 보고 동적으로 맞춤)
 실행: python -m app.market.collector
 """
 
@@ -37,15 +39,27 @@ async def start_producer() -> AIOKafkaProducer:
 
 
 async def run() -> None:
-    source = create_source(settings.market_source)
+    import redis.asyncio as aioredis
+
+    from app.kiwoom import platform
+
+    r = aioredis.from_url(settings.redis_url, decode_responses=True)
+    source = create_source(settings.market_source, redis=r)
     producer = await start_producer()
     try:
-        while True:
-            for tick in source.next_ticks():
-                await producer.send(settings.price_topic, tick, key=tick["symbol"])
-            await asyncio.sleep(settings.tick_interval_sec)
+        if hasattr(source, "stream"):  # 키움: 실시간 WebSocket
+            async for ticks in source.stream():
+                for tick in ticks:
+                    await producer.send(settings.price_topic, tick, key=tick["symbol"])
+        else:  # 모의 시세: 1초마다 생성
+            while True:
+                for tick in source.next_ticks():
+                    await producer.send(settings.price_topic, tick, key=tick["symbol"])
+                await asyncio.sleep(settings.tick_interval_sec)
     finally:
         await producer.stop()
+        await platform.close_team_client()
+        await r.aclose()
 
 
 if __name__ == "__main__":

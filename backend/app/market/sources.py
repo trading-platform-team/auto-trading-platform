@@ -1,7 +1,7 @@
 """시세 데이터 소스
 
 - MockSource: 키움 API 키 없이 개발·시연할 수 있는 가상 시세 (랜덤워크 + 가끔 급등락)
-- KiwoomSource: 키움 REST API 연동 (키 발급 후 구현, Issue #3)
+- KiwoomSource: 키움 실시간 시세 (플랫폼 키, 보고 있는 종목·전략 종목만 동적 구독)
 """
 
 import random
@@ -64,15 +64,93 @@ class MockSource:
 
 
 class KiwoomSource:
-    """키움 REST API 시세 소스 (TODO: Issue #3에서 구현)"""
+    """키움 실시간 시세 소스 (팀 키, WebSocket)
 
-    def __init__(self, *args, **kwargs):
-        raise NotImplementedError("키움 API 키 발급 후 구현 예정")
+    - 구독 종목은 sync_every초마다 Redis(market:watch, market:strategy_symbols)를 보고 맞춘다
+    - 체결·호가를 interval초 단위로 묶어 MockSource와 같은 형식의 시세로 내보낸다
+    - 연결이 끊기면 1초부터 최대 60초까지 늘려가며 다시 접속한다
+    """
+
+    def __init__(self, redis, client=None, connect=None, interval: float = 1.0, sync_every: float = 2.0,
+                 max_realtime: int | None = None, defaults: list[str] | None = None, stocks=None):
+        from app.core.config import settings
+        from app.kiwoom import platform
+        from app.stocks.service import StockService
+
+        self.redis = redis
+        self.client = client or platform.team_client() or platform.open_team_client()
+        if not self.client.enabled:
+            raise RuntimeError(
+                "키움 키가 없습니다. .env에 KIWOOM_APP_KEY / KIWOOM_SECRET_KEY를 넣거나 "
+                "MARKET_SOURCE=mock으로 실행하세요"
+            )
+        self.stocks = stocks or StockService(redis, self.client)  # 종목 이름 (가상계좌 연습과 같은 Redis 캐시)
+        self.connect = connect
+        self.interval = interval
+        self.sync_every = sync_every
+        self.max_realtime = max_realtime or settings.kiwoom_max_realtime
+        self.defaults = defaults if defaults is not None else platform.default_symbols()
+        self.names: dict[str, str] = {}
+
+    async def _sync(self, rt) -> None:
+        from app.kiwoom.watch import desired_symbols
+
+        desired = await desired_symbols(self.redis, self.defaults, self.max_realtime)
+        if any(sym not in self.names for sym in desired):
+            master = await self.stocks.master()
+            for sym in desired:
+                info = master.get(sym)
+                self.names[sym] = info["name"] if info else DEFAULT_SYMBOLS.get(sym, (sym,))[0]
+        await rt.sync(desired)
+
+    @staticmethod
+    async def _read(rt, agg) -> None:
+        async for item in rt.messages():
+            agg.feed(item)
+
+    async def stream(self):
+        """시세 목록을 interval마다 내보내는 async generator"""
+        import asyncio
+        import logging
+        import time
+
+        from app.kiwoom.realtime import KiwoomRealtime, TickAggregator
+
+        log = logging.getLogger(__name__)
+        backoff = 1.0
+        while True:
+            try:
+                kwargs = {"connect": self.connect} if self.connect else {}
+                async with KiwoomRealtime(self.client.env, self.client.token, **kwargs) as rt:
+                    backoff = 1.0
+                    agg = TickAggregator()
+                    reader = asyncio.create_task(self._read(rt, agg))
+                    last_sync = 0.0
+                    try:
+                        while True:
+                            if reader.done():
+                                reader.result()  # 오류가 있으면 여기서 올라감
+                                raise ConnectionError("실시간 연결이 끊겼습니다")
+                            if time.monotonic() - last_sync >= self.sync_every:
+                                await self._sync(rt)
+                                last_sync = time.monotonic()
+                            await asyncio.sleep(self.interval)
+                            ticks = agg.flush(lambda s: self.names.get(s, s))
+                            if ticks:
+                                yield ticks
+                    finally:
+                        reader.cancel()
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:  # noqa: BLE001 - 끊기면 다시 접속
+                log.warning("키움 실시간 오류: %s → %.0f초 후 재접속", e, backoff)
+                await asyncio.sleep(backoff)
+                backoff = min(backoff * 2, 60.0)
 
 
-def create_source(name: str):
+def create_source(name: str, redis=None):
     if name == "mock":
         return MockSource()
     if name == "kiwoom":
-        return KiwoomSource()
+        return KiwoomSource(redis)
     raise ValueError(f"알 수 없는 시세 소스: {name}")

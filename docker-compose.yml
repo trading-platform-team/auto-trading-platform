@@ -44,12 +44,14 @@ services:
     command: ["python", "-m", "app.market.collector"]
     environment:
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      REDIS_URL: redis://redis:6379/0       # 실시간 구독 종목·종목 목록 공유
       MARKET_SOURCE: ${MARKET_SOURCE:-mock}
     env_file:
       - path: .env
         required: false
     depends_on:
       - kafka
+      - redis
     restart: unless-stopped
     networks: [trading-net]
 

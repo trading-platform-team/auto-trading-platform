@@ -36,6 +36,7 @@ def init_db(retries: int = 30, delay: float = 2.0) -> None:
     from app.edu import models as _e  # noqa: F401
     from app.history import models as _h  # noqa: F401
     from app.strategy import models  # noqa: F401
+    from app.trading import models as _t  # noqa: F401
 
     for i in range(retries):
         try:
@@ -49,7 +50,10 @@ def init_db(retries: int = 30, delay: float = 2.0) -> None:
 
 
 # create_all은 이미 있는 테이블에 컬럼을 추가하지 않으므로, 기존 볼륨(pg-data)을 쓰는 환경을 위해 직접 추가한다
-_ADDED_COLUMNS = {"strategies": {"user_id": "INTEGER"}, "orders": {"user_id": "INTEGER"}}
+_ADDED_COLUMNS = {
+    "strategies": {"user_id": "INTEGER", "account": "VARCHAR(10)"},
+    "orders": {"user_id": "INTEGER"},
+}
 
 
 def _migrate() -> None:

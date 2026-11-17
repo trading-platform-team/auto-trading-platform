@@ -55,6 +55,7 @@ export function toStrategyPayload(form) {
     quantity: Number(form.quantity),
     cooldown_sec: Number(form.cooldown_sec),
     enabled: true,
+    account: form.account === 'kiwoom' ? 'kiwoom' : 'paper', // kiwoom: 실거래 설정으로 키움 주문
     conditions: form.conditions.map((c) => ({
       left: toIndicator(c.left),
       op: c.op,
