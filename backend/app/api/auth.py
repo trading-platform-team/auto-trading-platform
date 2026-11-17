@@ -7,6 +7,7 @@ from app.api.strategies import SessionDep
 from app.auth.deps import CurrentUser
 from app.auth.models import User
 from app.auth.security import create_token, hash_password, verify_password
+from app.edu import account
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -35,6 +36,7 @@ def register(body: Credentials, s: SessionDep):
         s.rollback()
         raise HTTPException(409, "이미 사용 중인 아이디입니다") from e
     s.refresh(user)
+    account.get_or_create(s, user.id)  # 가입하면 가상계좌(1,000만 원)를 바로 개설
     return _token_response(user)
 
 
