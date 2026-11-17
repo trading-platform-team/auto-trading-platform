@@ -56,6 +56,8 @@ Kafka → 전략 엔진 / AI 이상탐지 / 화면  (모의 시세와 같은 형
 | kt00001 예수금 필드 `entr`, `ord_alow_amt`, `d2_entra` | `api/trading.py` `account()` |
 | kt00009 요청 필드, 응답 `acnt_ord_cntr_prst_array`, `cntr_qty`·`cntr_uv` | `client.py`, `trading/broker.py` |
 | kt10003 취소 요청 필드 (`orig_ord_no`, `cncl_qty`) | `client.py` `cancel()` |
+| 실시간 00 주문체결 FID: 9203 주문번호, 909 체결번호, 911 체결량, 910 체결가, 902 미체결수량 | `trading/executions.py` |
+| 00 등록 형식 (item 빈 값, 그룹 번호) | `realtime.py` `subscribe_account()` |
 | 같은 종목 현재가가 HTS와 같은지 | `/market/quote` |
 
 실제 응답을 테스트 데이터로 저장할 때는 계좌번호·토큰을 지우고 커밋한다.
@@ -70,6 +72,13 @@ get_credentials(user_id: int, env: "mock" | "real") -> KiwoomCredentials | None
 
 키 등록 기능(Vault 저장)을 만들면 앱 시작 시 `credentials.set_provider(내_함수)`로 연결한다.
 그 전까지는 `KIWOOM_DEV_USE_TEAM_KEY=true`이면 모든 사용자가 팀 키(.env)를 쓴다 (팀 키가 모의 서버일 때만, 실전은 불가).
+
+## 체결 실시간 통보
+
+- 실거래를 켠 사용자의 키마다 WebSocket을 하나 열고 00(주문체결)을 등록한다 (backend, `KIWOOM_EXECUTION_WS=true`)
+- 체결이 오면 주문 상태를 바로 갱신하고 주문 주인에게 알림 → 화면 알림·음성 알림
+- 같은 체결이 두 번 와도 (주문번호, 체결번호)로 한 번만 반영. 체결 수량은 `주문수량 - 미체결수량`
+- 연결이 끊겨도 1초~60초 간격으로 다시 접속하고, 주문 내역 조회 때 체결 현황(kt00009)으로 한 번 더 맞춘다
 
 ## 위험 제한
 

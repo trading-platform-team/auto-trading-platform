@@ -14,6 +14,7 @@ from app.kiwoom import platform
 from app.kiwoom.watch import publish_strategy_symbols_forever
 from app.market.consumer import consume_forever
 from app.stocks.service import StockService
+from app.trading.executions import ExecutionWatcher
 
 log = logging.getLogger("uvicorn.error")
 
@@ -42,6 +43,8 @@ async def lifespan(app: FastAPI):
     app.state.stocks.warm()  # 종목 목록을 미리 받기 시작
     log.info("가상계좌 연습 시세: %s", "키움 REST API" if kiwoom.enabled else "가상 시세 (키움 키 없음)")
     tasks = [asyncio.create_task(consume_forever(app.state.redis))] if settings.enable_consumer else []
+    if settings.kiwoom_execution_ws:  # 실거래 체결 즉시 반영·알림
+        tasks.append(asyncio.create_task(ExecutionWatcher(app.state.redis).run_forever()))
     if settings.market_source == "kiwoom":
         tasks.append(asyncio.create_task(publish_strategy_symbols_forever(app.state.redis)))  # 실시간 구독할 전략 종목
     yield

@@ -207,6 +207,7 @@ def client(sqlite_db, fake_redis, fake, monkeypatch):
     monkeypatch.setattr("app.main.settings.enable_consumer", False)
     monkeypatch.setattr("app.main.aioredis.from_url", lambda *a, **k: fake_redis)
     monkeypatch.setattr("app.trading.broker.settings.kiwoom_rest_per_sec", 0)
+    monkeypatch.setattr("app.main.settings.kiwoom_execution_ws", False)
     monkeypatch.setattr(broker, "transport", fake.transport())
     broker.reset_apis()
     credentials.set_provider(lambda uid, env: USER if env == "mock" else None)
@@ -394,3 +395,72 @@ async def test_publish_strategy_symbols(sqlite_db, fake_redis):
         s.commit()
     assert await watch.publish_strategy_symbols(fake_redis) == ["000660"]
     assert await fake_redis.smembers(watch.STRATEGY_KEY) == {"000660"}
+
+
+# ---------- 체결 실시간 통보 ----------
+def exec_msg(ord_no, exec_no, qty, price, remain):
+    return {"trnm": "REAL", "data": [{"type": "00", "item": "", "values": {
+        "9203": ord_no, "909": exec_no, "911": str(qty), "910": str(price), "902": str(remain), "913": "체결"}}]}
+
+
+def test_execution_updates_order_and_alerts(client, fake, fake_redis):
+    from app.trading.executions import apply_execution
+
+    activate(client)
+    o = client.post("/trading/kiwoom/orders", json={"symbol": "005930", "side": "buy", "quantity": 10,
+                                                    "price": 70000}).json()
+    vals = exec_msg("0000001", "1", 4, 70000, 6)["data"][0]["values"]
+    got = client.portal.call(apply_execution, fake_redis, "mock", vals)
+    assert got["status"] == "PARTIAL" and got["filled_qty"] == 4
+    assert client.portal.call(apply_execution, fake_redis, "mock", vals) is None  # 같은 체결 중복
+    vals2 = exec_msg("1", "2", 6, 70100, 0)["data"][0]["values"]  # 주문번호 앞자리 0 없이 와도 매칭
+    got = client.portal.call(apply_execution, fake_redis, "mock", vals2)
+    assert got["status"] == "FILLED" and got["filled_qty"] == 10 and got["filled_price"] == 70060
+    alert = json.loads(client.portal.call(fake_redis.lindex, "alerts", 0))
+    assert alert["user_id"] == o["user_id"] and "키움 체결" in alert["message"] and "6주" in alert["message"]
+    [listed] = client.get("/trading/kiwoom/orders?sync=false").json()
+    assert listed["status"] == "FILLED"
+
+
+def test_execution_ignores_non_fill_and_unknown(client, fake_redis):
+    from app.trading.executions import apply_execution
+
+    assert client.portal.call(apply_execution, fake_redis, "mock", {"9203": "0000001", "911": "0"}) is None
+    assert client.portal.call(apply_execution, fake_redis, "mock",
+                              {"9203": "9999999", "909": "1", "911": "1", "910": "1", "902": "0"}) is None
+
+
+def test_execution_watcher_listens_for_enabled_users(client, fake, fake_redis):
+    from app.trading.executions import ExecutionWatcher
+
+    activate(client)
+    client.post("/trading/kiwoom/orders", json={"symbol": "005930", "side": "sell", "quantity": 2, "price": 80000})
+    ws = FakeWs([{"trnm": "LOGIN", "return_code": 0}, {"trnm": "REG", "return_code": 0},
+                 exec_msg("0000001", "7", 2, 80000, 0)])
+
+    async def run_once():
+        w = ExecutionWatcher(fake_redis, connect=ws)
+        await w.refresh()
+        assert len(w.tasks) == 1  # 실거래 켠 사용자 1명 → 연결 1개
+        import asyncio
+
+        for _ in range(50):
+            await asyncio.sleep(0.01)
+            if ws.closed:
+                break
+        for t in w.tasks.values():
+            t.cancel()
+
+    client.portal.call(run_once)
+    assert ws.sent[1] == {"trnm": "REG", "grp_no": "9", "refresh": "1", "data": [{"item": [""], "type": ["00"]}]}
+    [o] = client.get("/trading/kiwoom/orders?sync=false").json()
+    assert o["status"] == "FILLED" and o["filled_price"] == 80000
+
+    client.post("/trading/kiwoom/deactivate")
+
+    async def after_off():
+        w = ExecutionWatcher(fake_redis, connect=ws)
+        await w.refresh()
+        return len(w.tasks)
+
+    assert client.portal.call(after_off) == 0  # 끄면 연결하지 않음

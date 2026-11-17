@@ -8,6 +8,7 @@
 FID (공식 명세 기준, 키 발급 후 확인 필요)
 - 0B 주식체결: 10 현재가, 15 거래량(+매수/-매도 체결), 13 누적거래량, 20 체결시간
 - 0D 주식호가잔량: 121 매도호가총잔량, 125 매수호가총잔량
+- 00 주문체결: 9203 주문번호, 909 체결번호, 911 체결량, 910 체결가, 902 미체결수량 (app/trading/executions.py)
 """
 
 import json
@@ -21,6 +22,7 @@ log = logging.getLogger(__name__)
 
 TYPE_TRADE = "0B"
 TYPE_BOOK = "0D"
+TYPE_ORDER = "00"  # 주문체결 (계좌 단위)
 FID_PRICE, FID_VOLUME = "10", "15"
 FID_ASK_TOTAL, FID_BID_TOTAL = "121", "125"
 REG_CHUNK = 30  # 한 번에 등록할 종목 수 (몰아서 보내지 않기)
@@ -75,6 +77,11 @@ class KiwoomRealtime:
             await self._send({"trnm": "REG", "grp_no": self.group, "refresh": "1",
                               "data": [{"item": chunk, "type": [TYPE_TRADE, TYPE_BOOK]}]})
             self.subscribed.update(chunk)
+
+    async def subscribe_account(self) -> None:
+        """00 주문체결: 종목과 상관없이 토큰을 발급한 계좌의 접수·체결·취소를 받는다 (item은 빈 값)"""
+        await self._send({"trnm": "REG", "grp_no": self.group, "refresh": "1",
+                          "data": [{"item": [""], "type": [TYPE_ORDER]}]})
 
     async def unsubscribe(self, codes: list[str]) -> None:
         old = [c for c in codes if c in self.subscribed]
