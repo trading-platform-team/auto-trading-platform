@@ -70,7 +70,7 @@ export default function EducationPage({ onNavigate }) {
       </div>
 
       {tab === 'path' && <LearningPath progress={progress} onStart={setLesson} onGo={onNavigate} />}
-      {tab === 'glossary' && <Glossary completed={completed} />}
+      {tab === 'glossary' && <Glossary completed={completed} units={progress.units} />}
       {tab === 'badges' && (
         <div className="badges">
           {progress.badges.map((b) => (

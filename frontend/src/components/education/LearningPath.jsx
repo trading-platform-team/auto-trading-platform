@@ -32,7 +32,7 @@ export default function LearningPath({ progress, onStart, onGo }) {
           <section key={u.id} className={`unit ${unitLocked ? 'locked' : ''}`}>
             <div className="unit-head">
               <div>
-                <span className="unit-no">유닛 {ui + 1}</span>
+                <span className="unit-no">{ui + 1}단계</span>
                 <h3>{u.title}</h3>
                 <p className="muted small">{u.description}</p>
               </div>

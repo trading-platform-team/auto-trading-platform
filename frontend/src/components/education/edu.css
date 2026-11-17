@@ -197,3 +197,7 @@ fieldset.plain { border: none; padding: 0; margin: 0; min-width: 0; }
 .deploy-box { background: var(--bg); border: 1px dashed #7c6cf2; border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 8px; }
 .deploy-title { font-weight: 800; font-size: 16px; }
 .deploy-box .pb-grid b { text-align: left; }
+
+.glossary-group { margin-top: 14px; }
+.glossary-group h4 { margin: 0 0 4px; display: flex; gap: 8px; align-items: baseline; }
+.glossary .card-head input { min-width: 200px; }
