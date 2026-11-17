@@ -60,6 +60,21 @@ def test_register_login_me(client):
     assert client.get("/auth/me", headers={"Authorization": f"Bearer {token}"}).json()["username"] == "alice"
 
 
+def test_register_opens_virtual_account(client):
+    from app import db
+    from app.auth.models import User
+    from app.edu.account import INITIAL_CASH
+    from app.edu.models import EduAccount
+
+    client.post("/auth/register", json={"username": "bob", "password": "password123"})
+    client.post("/auth/register", json={"username": "bob", "password": "password123"})  # 중복 가입은 409
+    with db.new_session() as s:
+        user = s.query(User).filter_by(username="bob").one()
+        acc = s.get(EduAccount, user.id)
+        assert acc.cash == acc.initial_cash == INITIAL_CASH
+        assert s.query(EduAccount).count() == 1  # 실패한 가입은 계좌를 만들지 않음
+
+
 def test_protected_endpoints_require_login(client):
     assert client.get("/strategies").status_code == 401
     assert client.get("/orders").status_code == 401
