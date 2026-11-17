@@ -2,10 +2,13 @@
 
 새 시세가 들어올 때마다(consumer에서 호출) 해당 종목의 활성 전략을 평가하고,
 조건을 만족하면 모의 주문을 실행한 뒤 알림을 Redis에 남긴다.
+모의 매수 전략에 익절·손절(%)이 있으면, 이 전략이 산 주식이 평균 단가 대비
+그만큼 오르거나 내렸을 때 먼저 매도한다 (그 시세에서는 매수 조건을 보지 않음).
 
 Redis 사용
 - ticks:<종목>      최근 시세 → 지표 계산 입력
 - cooldown:<전략ID> 같은 전략이 연속으로 주문하지 않도록 쿨다운 (SET NX EX)
+- exit:<전략ID>     익절·손절 매도가 거부될 때 매 시세마다 다시 시도하지 않도록 잠깐 막음
 - alerts            최근 알림 목록 + Pub/Sub 채널 (실시간 알림, Issue #15)
 """
 
@@ -18,7 +21,7 @@ from sqlalchemy import select
 
 from app import db
 from app.market.cache import get_ticks
-from app.strategy.broker import FILLED, SUBMITTED, Broker, PaperBroker
+from app.strategy.broker import FILLED, SUBMITTED, Broker, PaperBroker, exit_reason, position
 from app.strategy.evaluator import evaluate
 from app.strategy.models import Strategy
 from app.trading import broker as kiwoom_broker
@@ -28,6 +31,7 @@ log = logging.getLogger("uvicorn.error")
 ALERTS_KEY = "alerts"
 MAX_ALERTS = 100
 broker: Broker = PaperBroker()  # account="paper" 전략용. 다른 Broker로 바꿔도 엔진 코드는 그대로
+EXIT_RETRY_SEC = 30  # 익절·손절 매도가 거부됐을 때 다시 시도하기까지
 
 
 def _load_strategies(symbol: str) -> list[Strategy]:
@@ -35,27 +39,64 @@ def _load_strategies(symbol: str) -> list[Strategy]:
         return list(s.scalars(select(Strategy).where(Strategy.symbol == symbol, Strategy.enabled.is_(True))))
 
 
+def _order_dict(strategy: Strategy, order) -> dict:
+    return {
+        "order_id": order.id,
+        "user_id": order.user_id,
+        "strategy_id": strategy.id,
+        "strategy_name": strategy.name,
+        "symbol": order.symbol,
+        "side": order.side,
+        "quantity": order.quantity,
+        "price": order.price,
+        "status": order.status,
+        "reject_reason": order.reason.get("reject_reason", ""),
+        "exit": order.reason.get("exit"),  # take_profit | stop_loss | None
+        "exit_label": order.reason.get("exit_label"),
+        "change_pct": order.reason.get("change_pct"),
+    }
+
+
 def _place(strategy_id: int, price: float, reason: dict) -> dict:
     with db.new_session() as s:
         strategy = s.get(Strategy, strategy_id)
-        order = broker.place(s, strategy, price, reason)
-        return {
-            "order_id": order.id,
-            "user_id": order.user_id,
-            "strategy_id": strategy.id,
-            "strategy_name": strategy.name,
-            "symbol": order.symbol,
-            "side": order.side,
-            "quantity": order.quantity,
-            "price": order.price,
-            "status": order.status,
-            "reject_reason": order.reason.get("reject_reason", ""),
-        }
+        return _order_dict(strategy, broker.place(s, strategy, price, reason))
+
+
+def uses_exit(st: Strategy) -> bool:
+    return (
+        isinstance(broker, PaperBroker)
+        and st.account != "kiwoom"
+        and st.side == "buy"
+        and (st.take_profit_pct is not None or st.stop_loss_pct is not None)
+    )
+
+
+def _check_exit(strategy_id: int, price: float) -> tuple[int, dict] | None:
+    """익절·손절할 때면 (매도 수량, 사유), 아니면 None"""
+    with db.new_session() as s:
+        strategy = s.get(Strategy, strategy_id)
+        if strategy is None or strategy.user_id is None:
+            return None
+        pos = position(s, strategy)
+        qty = broker.held_by_strategy(s, strategy) if pos else 0
+        if qty == 0:
+            return None
+        reason = exit_reason(strategy, pos.avg_price, price)
+        return (qty, reason) if reason else None
+
+
+def _close(strategy_id: int, price: float, quantity: int, reason: dict) -> dict:
+    with db.new_session() as s:
+        strategy = s.get(Strategy, strategy_id)
+        return _order_dict(strategy, broker.close(s, strategy, price, quantity, reason))
 
 
 def order_message(strategy_name: str, stock_name: str, order: dict) -> str:
     """주문 결과(체결·접수·거부)에 맞는 알림 문장"""
     side = "매수" if order["side"] == "buy" else "매도"
+    if order.get("exit_label"):  # 익절·손절 매도
+        side = f"{order['exit_label']} 매도 ({order['change_pct']:+.2f}%)"
     head = f"[{strategy_name}] {stock_name} {order['quantity']}주 {side}"
     if order["status"] == FILLED:
         return f"{head} @ {order['price']:,.0f}원"
@@ -82,6 +123,19 @@ async def on_tick(r, tick: dict) -> list[dict]:
     closes = [t["price"] for t in await get_ticks(r, tick["symbol"], limit=300)]
     executed = []
     for st in strategies:
+        if uses_exit(st):
+            found = await asyncio.to_thread(_check_exit, st.id, tick["price"])
+            if found:
+                if not await r.set(f"exit:{st.id}", 1, nx=True, ex=EXIT_RETRY_SEC):
+                    continue  # 방금 매도가 거부돼 잠시 쉬는 중
+                qty, reason = found
+                order = await asyncio.to_thread(_close, st.id, tick["price"], qty, reason)
+                if order["status"] == FILLED:
+                    await r.delete(f"exit:{st.id}")
+                await _alert(r, order, order_message(st.name, tick["name"], order))
+                executed.append(order)
+                continue  # 매도한 시세에서는 다시 사지 않음
+
         ok, details = evaluate(st.conditions, closes)
         if not ok:
             continue
@@ -101,14 +155,18 @@ async def on_tick(r, tick: dict) -> list[dict]:
         else:  # 자체 모의 체결 (Broker 인터페이스)
             order = await asyncio.to_thread(_place, st.id, tick["price"], {"conditions": details})
             message = order_message(st.name, tick["name"], order)
-        alert = {
-            "type": "order",
-            "user_id": order["user_id"],  # 주문 알림은 전략 주인에게만 전달
-            "message": message,
-            "order": order,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-        }
-        await push_alert(r, alert)
-        log.info(alert["message"])
+        await _alert(r, order, message)
         executed.append(order)
     return executed
+
+
+async def _alert(r, order: dict, message: str) -> None:
+    alert = {
+        "type": "order",
+        "user_id": order["user_id"],  # 주문 알림은 전략 주인에게만 전달
+        "message": message,
+        "order": order,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+    await push_alert(r, alert)
+    log.info(message)

@@ -51,7 +51,12 @@ def init_db(retries: int = 30, delay: float = 2.0) -> None:
 
 # create_all은 이미 있는 테이블에 컬럼을 추가하지 않으므로, 기존 볼륨(pg-data)을 쓰는 환경을 위해 직접 추가한다
 _ADDED_COLUMNS = {
-    "strategies": {"user_id": "INTEGER", "account": "VARCHAR(10)"},
+    "strategies": {
+        "user_id": "INTEGER",
+        "account": "VARCHAR(10)",
+        "take_profit_pct": "FLOAT",
+        "stop_loss_pct": "FLOAT",
+    },
     "orders": {"user_id": "INTEGER"},
     "edu_trades": {"strategy_id": "INTEGER"},
 }
