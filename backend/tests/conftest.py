@@ -3,11 +3,14 @@ import pytest
 
 from app import db
 from app.auth import security
+from app.core.config import settings
 
 
 @pytest.fixture(autouse=True)
-def jwt_secret():
+def isolated_settings(monkeypatch):
+    """테스트에서 실제 외부 API를 호출하거나 운영용 비밀값을 사용하지 않는다."""
     security.set_secret("test-secret")
+    monkeypatch.setattr(settings, "external_events_enabled", False)
     yield
 
 
