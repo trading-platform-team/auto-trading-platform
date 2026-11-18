@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { api } from '../../api.js'
-import { fmtNum, fmtPct, fmtTime, fmtWon, pctClass } from '../../format.js'
+import { fmtNum, fmtPct, fmtTime, fmtWon, pctClass, tradeSource } from '../../format.js'
+import StrategyStats from '../StrategyStats.jsx'
 import { missions } from './engine.js'
 import StockBrowser from './practice/StockBrowser.jsx'
 import StockDetail from './practice/StockDetail.jsx'
@@ -178,6 +179,7 @@ export default function Practice({ onBadge }) {
                     <tr key={t.id}>
                       <td className="muted num">{fmtTime(t.created_at)}</td>
                       <td>{t.name}</td>
+                      <td title={tradeSource(t).title}>{tradeSource(t).auto ? <span className="tag source-tag">{tradeSource(t).label}</span> : <span className="muted small">{tradeSource(t).label}</span>}</td>
                       <td className={t.side === 'buy' ? 'up' : 'down'}>{t.side === 'buy' ? '매수' : '매도'}</td>
                       <td className="r num">{fmtNum(t.quantity)}주</td>
                       <td className="r num">{fmtNum(t.price)}</td>
@@ -190,6 +192,8 @@ export default function Practice({ onBadge }) {
           )}
         </section>
       </div>
+
+      <StrategyStats stats={account.strategy_stats} />
     </div>
   )
 }

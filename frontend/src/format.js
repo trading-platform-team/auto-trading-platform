@@ -108,6 +108,12 @@ export const PRESETS = [
 const ORDER_STATUS = { FILLED: '체결', SUBMITTED: '접수', REJECTED: '거부' }
 export const orderStatusLabel = (status) => ORDER_STATUS[status] ?? '체결' // 예전 주문은 상태가 비어 있을 수 있음
 
+// 가상계좌 거래의 출처: 직접 주문 / 자동매매(전략 이름)
+export const tradeSource = (t) =>
+  t.strategy_id == null
+    ? { auto: false, label: '직접', title: '직접 주문' }
+    : { auto: true, label: t.strategy_name ?? '삭제된 전략', title: `자동매매: ${t.strategy_name ?? '삭제된 전략'}` }
+
 // 음성 알림 문장
 export function speechText(alert) {
   if (alert.type === 'order') {

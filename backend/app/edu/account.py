@@ -5,12 +5,14 @@
 - 현금이 부족하거나 보유 수량이 부족하면 주문 거부
 - 수수료 0.015% (매수·매도 각각), 매도 시 실현손익 기록
 - 초기화하면 처음 상태로 (거래 기록 삭제)
+- 거래 기록에 직접 주문 / 자동매매(전략 이름) 구분, 전략별 통계 (거래 수·실현손익·승률)
 """
 
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.edu.models import EduAccount, EduPosition, EduTrade, EduWatch
+from app.strategy.models import Strategy
 
 INITIAL_CASH = 10_000_000
 FEE_PCT = 0.015
@@ -112,6 +114,44 @@ def reset(s: Session, user_id: int) -> None:
     s.commit()
 
 
+def strategy_names(s: Session, ids: set[int]) -> dict[int, str]:
+    if not ids:
+        return {}
+    return dict(s.execute(select(Strategy.id, Strategy.name).where(Strategy.id.in_(ids))).all())
+
+
+def strategy_stats(s: Session, user_id: int) -> list[dict]:
+    """직접 주문과 전략별 성과: 거래 수, 매수·매도 수, 실현손익, 승률(수익 난 매도 / 전체 매도)
+
+    직접 주문이 맨 앞, 나머지는 거래가 많은 전략 순. 삭제된 전략도 기록은 남는다.
+    """
+    groups: dict[int | None, dict] = {}
+    for strategy_id, side, pnl in s.execute(
+        select(EduTrade.strategy_id, EduTrade.side, EduTrade.realized_pnl).where(EduTrade.user_id == user_id)
+    ):
+        g = groups.setdefault(strategy_id, {"trades": 0, "buys": 0, "sells": 0, "wins": 0, "realized_pnl": 0.0})
+        g["trades"] += 1
+        if side == "buy":
+            g["buys"] += 1
+        else:
+            g["sells"] += 1
+            g["wins"] += 1 if (pnl or 0) > 0 else 0
+            g["realized_pnl"] += pnl or 0
+    names = strategy_names(s, {k for k in groups if k is not None})
+    rows = [
+        {
+            "strategy_id": k,
+            "name": "직접 주문" if k is None else names.get(k, "삭제된 전략"),
+            "auto": k is not None,
+            **g,
+            "realized_pnl": round(g["realized_pnl"]),
+            "win_rate": round(g["wins"] / g["sells"] * 100, 1) if g["sells"] else None,
+        }
+        for k, g in groups.items()
+    ]
+    return sorted(rows, key=lambda x: (x["auto"], -x["trades"]))
+
+
 def snapshot(s: Session, user_id: int, prices: dict[str, dict]) -> dict:
     """계좌 요약. prices: 종목코드 → 최신 시세(dict, name·price 포함)"""
     acc = get_or_create(s, user_id)
@@ -133,7 +173,10 @@ def snapshot(s: Session, user_id: int, prices: dict[str, dict]) -> dict:
         )
     stock_value = sum(x["value"] for x in positions)
     equity = acc.cash + stock_value
-    trades = s.scalars(select(EduTrade).where(EduTrade.user_id == user_id).order_by(EduTrade.id.desc()).limit(30))
+    trades = list(
+        s.scalars(select(EduTrade).where(EduTrade.user_id == user_id).order_by(EduTrade.id.desc()).limit(30))
+    )
+    names = strategy_names(s, {t.strategy_id for t in trades if t.strategy_id is not None})
     realized = s.scalars(select(EduTrade.realized_pnl).where(EduTrade.user_id == user_id, EduTrade.side == "sell"))
     return {
         "initial_cash": acc.initial_cash,
@@ -153,10 +196,13 @@ def snapshot(s: Session, user_id: int, prices: dict[str, dict]) -> dict:
                 "price": t.price,
                 "fee": t.fee,
                 "realized_pnl": t.realized_pnl,
+                "strategy_id": t.strategy_id,  # None이면 직접 주문
+                "strategy_name": None if t.strategy_id is None else names.get(t.strategy_id, "삭제된 전략"),
                 "created_at": t.created_at.isoformat(),
             }
             for t in trades
         ],
+        "strategy_stats": strategy_stats(s, user_id),
     }
 
 
