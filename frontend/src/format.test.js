@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { canUseExit, conditionLabel, exitLabel, fmtPct, indicatorLabel, orderStatusLabel, PRESETS, speechText, toApiConditions, toFormCondition, toStrategyPayload } from './format.js'
+import { canUseExit, conditionLabel, exitLabel, fmtPct, indicatorLabel, orderStatusLabel, PRESETS, speechText, tradeSource, toApiConditions, toFormCondition, toStrategyPayload } from './format.js'
 
 describe('indicatorLabel', () => {
   it('지표 이름과 기간을 표시한다', () => {
@@ -65,6 +65,15 @@ describe('익절·손절', () => {
   it('익절·손절 매도 알림을 읽는다', () => {
     const alert = { type: 'order', message: '[RSI] 삼성전자 3주 익절 매도 (+5.71%) @ 74,000원', order: { status: 'FILLED' } }
     expect(speechText(alert)).toBe('삼성전자 3주 익절 매도 주문 체결')
+  })
+})
+
+describe('tradeSource', () => {
+  it('직접 주문과 자동매매(전략 이름)를 구분한다', () => {
+    expect(tradeSource({ strategy_id: null })).toEqual({ auto: false, label: '직접', title: '직접 주문' })
+    expect(tradeSource({ strategy_id: 3, strategy_name: 'RSI 매수' })).toEqual({ auto: true, label: 'RSI 매수', title: '자동매매: RSI 매수' })
+    expect(tradeSource({ strategy_id: 3, strategy_name: null }).label).toBe('삭제된 전략')
+    expect(tradeSource({}).auto).toBe(false) // 예전 응답에는 strategy_id가 없음
   })
 })
 

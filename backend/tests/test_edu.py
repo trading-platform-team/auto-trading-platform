@@ -139,3 +139,70 @@ def test_edu_api(client, fake_redis):
     bad = client.post("/edu/account/orders", json={"symbol": "005930", "side": "sell", "quantity": 99})
     assert bad.status_code == 422 and "보유 수량" in bad.json()["detail"]
     assert client.post("/edu/account/reset").json()["positions"] == []
+
+
+# ---------- 직접 주문 / 자동매매 구분, 전략별 통계 ----------
+def _make_strategy(s, name="RSI 매수") -> int:
+    from app.strategy.models import Strategy
+
+    st = Strategy(user_id=1, name=name, symbol="005930", side="buy", conditions=[], quantity=1)
+    s.add(st)
+    s.commit()
+    return st.id
+
+
+def test_trades_show_source_and_strategy_stats(sqlite_db):
+    with db.new_session() as s:
+        sid = _make_strategy(s)
+        account.place_order(s, 1, "005930", "buy", 10, 70000)  # 직접
+        account.place_order(s, 1, "005930", "buy", 5, 70000, strategy_id=sid)
+        account.place_order(s, 1, "005930", "sell", 2, 80000, strategy_id=sid)  # 수익
+        account.place_order(s, 1, "005930", "sell", 2, 60000, strategy_id=sid)  # 손실
+        account.place_order(s, 1, "005930", "sell", 1, 90000)  # 직접, 수익
+
+        snap = account.snapshot(s, 1, {})
+        latest, auto = snap["trades"][0], snap["trades"][1]
+        assert latest["strategy_id"] is None and latest["strategy_name"] is None
+        assert auto["strategy_id"] == sid and auto["strategy_name"] == "RSI 매수"
+
+        manual, rsi = snap["strategy_stats"]  # 직접 주문이 맨 앞
+        assert manual == {
+            "strategy_id": None, "name": "직접 주문", "auto": False, "trades": 2, "buys": 1, "sells": 1,
+            "wins": 1, "realized_pnl": manual["realized_pnl"], "win_rate": 100.0,
+        }
+        assert rsi["name"] == "RSI 매수" and rsi["auto"] is True
+        assert (rsi["trades"], rsi["buys"], rsi["sells"], rsi["wins"], rsi["win_rate"]) == (3, 1, 2, 1, 50.0)
+        assert manual["realized_pnl"] + rsi["realized_pnl"] == snap["realized_pnl"]
+
+
+def test_stats_keep_deleted_strategy_and_empty(sqlite_db):
+    from app.strategy.models import Strategy
+
+    with db.new_session() as s:
+        assert account.snapshot(s, 1, {})["strategy_stats"] == []
+        sid = _make_strategy(s)
+        account.place_order(s, 1, "005930", "buy", 1, 70000, strategy_id=sid)
+        s.delete(s.get(Strategy, sid))
+        s.commit()
+        snap = account.snapshot(s, 1, {})
+        assert snap["trades"][0]["strategy_name"] == "삭제된 전략"
+        (row,) = snap["strategy_stats"]
+        assert row["name"] == "삭제된 전략" and row["win_rate"] is None  # 매도 없음
+
+
+def test_reset_clears_paper_orders_but_keeps_strategies(sqlite_db):
+    """초기화하면 자동매매 모의 주문 내역도 지운다 (전략과 다른 사용자 주문은 그대로)"""
+    from app.strategy.broker import PaperBroker
+    from app.strategy.models import Order, Strategy
+
+    with db.new_session() as s:
+        sid = _make_strategy(s)
+        PaperBroker().place(s, s.get(Strategy, sid), 70000, {})
+        s.add(Order(user_id=2, strategy_name="남의 전략", symbol="005930", side="buy", quantity=1, price=1))
+        s.commit()
+
+        account.reset(s, 1)
+        assert s.query(Order).filter_by(user_id=1).count() == 0
+        assert s.query(Order).filter_by(user_id=2).count() == 1
+        assert s.get(Strategy, sid) is not None
+        assert account.snapshot(s, 1, {})["strategy_stats"] == []

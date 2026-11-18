@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { api } from '../../api.js'
-import { fmtNum, fmtPct, fmtTime, fmtWon, pctClass } from '../../format.js'
+import { fmtNum, fmtPct, fmtTime, fmtWon, pctClass, tradeSource } from '../../format.js'
+import StrategyStats from '../StrategyStats.jsx'
 import { missions } from './engine.js'
 import StockBrowser from './practice/StockBrowser.jsx'
 import StockDetail from './practice/StockDetail.jsx'
@@ -62,7 +63,7 @@ export default function Practice({ onBadge }) {
   }
 
   const reset = async () => {
-    if (!window.confirm('교육용 계좌를 처음 상태(1,000만 원)로 되돌릴까요? 거래 기록도 지워져요.')) return
+    if (!window.confirm('교육용 계좌를 처음 상태(1,000만 원)로 되돌릴까요? 거래 기록과 자동매매 모의 주문 내역도 지워져요. 등록한 전략은 그대로예요.')) return
     setAccount(await api.eduReset())
     setMsg(null)
   }
@@ -182,6 +183,7 @@ export default function Practice({ onBadge }) {
                       <td className="r num">{fmtNum(t.quantity)}주</td>
                       <td className="r num">{fmtNum(t.price)}</td>
                       <td className={`r num ${pctClass(t.realized_pnl)}`}>{t.realized_pnl == null ? '' : `${t.realized_pnl > 0 ? '+' : ''}${fmtNum(t.realized_pnl)}`}</td>
+                      <td title={tradeSource(t).title}>{tradeSource(t).auto ? <span className="tag source-tag">{tradeSource(t).label}</span> : <span className="muted small">{tradeSource(t).label}</span>}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -190,6 +192,8 @@ export default function Practice({ onBadge }) {
           )}
         </section>
       </div>
+
+      <StrategyStats stats={account.strategy_stats} />
     </div>
   )
 }
