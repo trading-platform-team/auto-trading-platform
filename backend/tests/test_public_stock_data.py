@@ -75,3 +75,36 @@ def test_public_stock_daily_supports_single_item():
         await client.close()
 
     asyncio.run(run())
+
+
+def test_latest_uses_last_close_and_cache():
+    calls = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        return httpx.Response(
+            200,
+            json={
+                "response": {
+                    "header": {"resultCode": "00"},
+                    "body": {
+                        "totalCount": 1,
+                        "items": {"item": {"basDt": "20240131", "srtnCd": "005930", "mkp": 72000,
+                                           "hipr": 73000, "lopr": 71000, "clpr": 72700, "trqu": 100}},
+                    },
+                }
+            },
+        )
+
+    client = PublicStockClient("key", "https://example.com", httpx.MockTransport(handler))
+
+    async def run():
+        first = await client.latest("005930", date(2024, 1, 31))
+        second = await client.latest("005930", date(2024, 1, 31))
+        await client.close()
+        assert first == second
+        assert first["price"] == 72700 and first["source"] == "public_data"
+        assert first["price_date"] == "2024-01-31" and calls == 1
+
+    asyncio.run(run())

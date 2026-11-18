@@ -109,7 +109,7 @@ export default function StockDetail({ symbol, account, watched, onToggleWatch, o
         <p className="empty">차트 불러오는 중...</p>
       ) : shown.length === 0 ? (
         <p className="empty">
-          {barsError ? `${barsError} · 잠시 후 다시 시도해요` : '키움 키가 없어서 차트를 볼 수 없어요 (가상 시세 모드)'}
+          {barsError ? `${barsError} · 잠시 후 다시 시도해요` : '과거 일봉 데이터가 없어요'}
         </p>
       ) : (
         <>

@@ -3,6 +3,7 @@
 공공데이터포털 서비스키 하나로 종목별 과거 일봉을 조회한다.
 """
 
+import time
 from datetime import date, timedelta
 from urllib.parse import unquote
 
@@ -17,6 +18,7 @@ class PublicStockClient:
     def __init__(self, service_key: str, base_url: str, transport: httpx.AsyncBaseTransport | None = None):
         self.service_key = unquote(service_key.strip())
         self.client = httpx.AsyncClient(base_url=base_url.rstrip("/"), timeout=15, transport=transport)
+        self._latest_cache: dict[str, tuple[float, dict]] = {}
 
     @property
     def enabled(self) -> bool:
@@ -81,3 +83,31 @@ class PublicStockClient:
                 break
             page += 1
         return [rows[key] for key in sorted(rows)]
+
+    async def latest(self, symbol: str, end: date | None = None) -> dict | None:
+        """최근 실제 거래일 종가. 가상계좌의 반복 조회를 줄이기 위해 10분간 보관한다."""
+        end = end or date.today()
+        cache_key = f"{symbol}:{end.isoformat()}"
+        cached = self._latest_cache.get(cache_key)
+        if cached and cached[0] > time.monotonic():
+            return dict(cached[1])
+        bars = await self.daily(symbol, end - timedelta(days=30), end)
+        if not bars:
+            return None
+        bar = bars[-1]
+        previous = bars[-2]["close"] if len(bars) > 1 else None
+        change = bar["close"] - previous if previous else None
+        quote = {
+            "symbol": symbol,
+            "price": bar["close"],
+            "open": bar["open"],
+            "high": bar["high"],
+            "low": bar["low"],
+            "volume": bar["volume"],
+            "change": change,
+            "change_pct": change / previous * 100 if previous else None,
+            "price_date": bar["date"],
+            "source": "public_data",
+        }
+        self._latest_cache[cache_key] = (time.monotonic() + 600, quote)
+        return dict(quote)

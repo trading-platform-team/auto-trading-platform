@@ -1,8 +1,9 @@
 """교육 페이지 API (학습 진도, 교육용 가상계좌, 관심종목)"""
 
+import asyncio
 from typing import Literal
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from app.api.stocks import StocksDep
@@ -10,6 +11,7 @@ from app.api.strategies import SessionDep
 from app.auth.deps import CurrentUser
 from app.edu import account, progress
 from app.edu.curriculum import UNITS
+from app.history.public_data import PublicDataError, PublicStockClient
 from app.stocks.service import QuoteUnavailable, StockNotFound, StockService
 
 router = APIRouter(prefix="/edu", tags=["education"])
@@ -44,13 +46,26 @@ def complete(lesson_id: str, body: LessonResultIn, s: SessionDep, user: CurrentU
 
 
 # ---------- 교육용 가상계좌 ----------
-async def _prices(svc: StockService, s, user_id: int) -> dict[str, dict]:
+async def _public_quotes(public: PublicStockClient, codes: list[str]) -> dict[str, dict]:
+    if not public.enabled:
+        return {}
+    results = await asyncio.gather(*(public.latest(code) for code in codes), return_exceptions=True)
+    return {
+        code: quote
+        for code, quote in zip(codes, results, strict=True)
+        if isinstance(quote, dict) and quote.get("price")
+    }
+
+
+async def _prices(public: PublicStockClient, svc: StockService, s, user_id: int) -> dict[str, dict]:
     """보유·거래 종목의 현재가와 이름 (snapshot용)"""
     codes = account.symbols(s, user_id)
     s.rollback()  # 키움 응답을 기다리는 동안 DB 연결을 붙잡지 않도록 반납 (읽기만 했음)
     if not codes:
         return {}
-    prices = await svc.quotes(codes)
+    prices = await _public_quotes(public, codes)
+    missing = [code for code in codes if code not in prices]
+    prices.update(await svc.quotes(missing))
     master = await svc.master()
     for c in codes:  # 시세를 못 받은 종목도 이름은 표시
         if c not in prices and c in master:
@@ -59,8 +74,8 @@ async def _prices(svc: StockService, s, user_id: int) -> dict[str, dict]:
 
 
 @router.get("/account")
-async def get_account(svc: StocksDep, s: SessionDep, user: CurrentUser):
-    return account.snapshot(s, user["id"], await _prices(svc, s, user["id"]))
+async def get_account(request: Request, svc: StocksDep, s: SessionDep, user: CurrentUser):
+    return account.snapshot(s, user["id"], await _prices(request.app.state.public_stocks, svc, s, user["id"]))
 
 
 class EduOrderIn(BaseModel):
@@ -70,14 +85,21 @@ class EduOrderIn(BaseModel):
 
 
 @router.post("/account/orders")
-async def order(body: EduOrderIn, svc: StocksDep, s: SessionDep, user: CurrentUser):
-    """현재가(키움 실시세, 연결 안 되면 가상 시세)로 시장가 주문"""
+async def order(body: EduOrderIn, request: Request, svc: StocksDep, s: SessionDep, user: CurrentUser):
+    """금융위원회 최근 실제 종가(실패 시 기존 시세)로 교육용 시장가 주문"""
+    quote = None
     try:
-        price = await svc.price(body.symbol)
+        await svc.info(body.symbol)
     except StockNotFound as e:
         if svc.status()["loading"]:
             raise HTTPException(503, "키움 종목 목록을 불러오는 중이에요. 잠시 후 다시 시도해 주세요") from e
         raise HTTPException(404, "없는 종목이에요") from e
+    try:
+        quote = await request.app.state.public_stocks.latest(body.symbol)
+    except PublicDataError:
+        pass
+    try:
+        price = quote["price"] if quote else await svc.price(body.symbol)
     except QuoteUnavailable:
         price = 0  # place_order가 '현재가를 알 수 없어요'로 거부
     before = set(progress.badges(s, user["id"]))
@@ -85,11 +107,15 @@ async def order(body: EduOrderIn, svc: StocksDep, s: SessionDep, user: CurrentUs
         trade = account.place_order(s, user["id"], body.symbol, body.side, body.quantity, price)
     except account.OrderRejected as e:
         raise HTTPException(422, str(e)) from e
-    snap = account.snapshot(s, user["id"], await _prices(svc, s, user["id"]))
+    snap = account.snapshot(
+        s, user["id"], await _prices(request.app.state.public_stocks, svc, s, user["id"])
+    )
     new_badges = [b for b in progress.badges(s, user["id"]) if b not in before]
     return {
         "trade_id": trade.id,
         "price": price,
+        "price_source": quote.get("source") if quote else "fallback",
+        "price_date": quote.get("price_date") if quote else None,
         "realized_pnl": trade.realized_pnl,
         "account": snap,
         "badges": new_badges,
@@ -97,9 +123,11 @@ async def order(body: EduOrderIn, svc: StocksDep, s: SessionDep, user: CurrentUs
 
 
 @router.post("/account/reset")
-async def reset(svc: StocksDep, s: SessionDep, user: CurrentUser):
+async def reset(request: Request, svc: StocksDep, s: SessionDep, user: CurrentUser):
     account.reset(s, user["id"])
-    return account.snapshot(s, user["id"], await _prices(svc, s, user["id"]))
+    return account.snapshot(
+        s, user["id"], await _prices(request.app.state.public_stocks, svc, s, user["id"])
+    )
 
 
 # ---------- 관심종목 ----------
