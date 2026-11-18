@@ -179,11 +179,11 @@ export default function Practice({ onBadge }) {
                     <tr key={t.id}>
                       <td className="muted num">{fmtTime(t.created_at)}</td>
                       <td>{t.name}</td>
-                      <td title={tradeSource(t).title}>{tradeSource(t).auto ? <span className="tag source-tag">{tradeSource(t).label}</span> : <span className="muted small">{tradeSource(t).label}</span>}</td>
                       <td className={t.side === 'buy' ? 'up' : 'down'}>{t.side === 'buy' ? '매수' : '매도'}</td>
                       <td className="r num">{fmtNum(t.quantity)}주</td>
                       <td className="r num">{fmtNum(t.price)}</td>
                       <td className={`r num ${pctClass(t.realized_pnl)}`}>{t.realized_pnl == null ? '' : `${t.realized_pnl > 0 ? '+' : ''}${fmtNum(t.realized_pnl)}`}</td>
+                      <td title={tradeSource(t).title}>{tradeSource(t).auto ? <span className="tag source-tag">{tradeSource(t).label}</span> : <span className="muted small">{tradeSource(t).label}</span>}</td>
                     </tr>
                   ))}
                 </tbody>
