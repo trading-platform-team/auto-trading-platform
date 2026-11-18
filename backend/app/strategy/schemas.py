@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 IndicatorName = Literal["PRICE", "SMA", "EMA", "RSI", "BB_UPPER", "BB_MIDDLE", "BB_LOWER"]
 Operator = Literal["<", "<=", ">", ">=", "cross_up", "cross_down"]
@@ -37,10 +37,24 @@ class StrategyIn(BaseModel):
     enabled: bool = True
     account: Literal["paper", "kiwoom"] = "paper"  # kiwoom: 실거래 설정(서버·한도)으로 키움에 주문
 
+    # 익절·손절(%): 평균 단가 대비 이만큼 오르거나(익절) 내리면(손절) 이 전략이 산 수량을 매도
+    take_profit_pct: float | None = Field(default=None, gt=0, le=1000)
+    stop_loss_pct: float | None = Field(default=None, gt=0, lt=100)
+
     @field_validator("account", mode="before")
     @classmethod
     def _default_account(cls, v):
         return v or "paper"  # 컬럼 추가 전에 만든 전략은 NULL
+
+    @model_validator(mode="after")
+    def _exit_only_for_paper_buy(self):
+        if self.take_profit_pct is None and self.stop_loss_pct is None:
+            return self
+        if self.side != "buy":
+            raise ValueError("익절·손절은 매수 전략에만 설정할 수 있어요")
+        if self.account != "paper":
+            raise ValueError("익절·손절은 아직 모의 주문 전략만 지원해요")
+        return self
 
 
 class StrategyOut(StrategyIn):

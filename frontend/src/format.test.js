@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { conditionLabel, fmtPct, indicatorLabel, orderStatusLabel, PRESETS, speechText, toApiConditions, toFormCondition, toStrategyPayload } from './format.js'
+import { canUseExit, conditionLabel, exitLabel, fmtPct, indicatorLabel, orderStatusLabel, PRESETS, speechText, toApiConditions, toFormCondition, toStrategyPayload } from './format.js'
 
 describe('indicatorLabel', () => {
   it('지표 이름과 기간을 표시한다', () => {
@@ -40,6 +40,31 @@ describe('toStrategyPayload', () => {
     expect(c.left).toEqual({ name: 'PRICE' })
     const rsi = toStrategyPayload({ ...form, ...PRESETS[0], name: 'y' }).conditions[0]
     expect(rsi.right).toBe(30)
+  })
+})
+
+describe('익절·손절', () => {
+  const base = { name: 'x', symbol: '005930', side: 'buy', quantity: 1, cooldown_sec: 0, ...PRESETS[0] }
+
+  it('모의 매수 전략에만 보낸다', () => {
+    const body = toStrategyPayload({ ...base, take_profit_pct: '5', stop_loss_pct: '3' })
+    expect(body.take_profit_pct).toBe(5)
+    expect(body.stop_loss_pct).toBe(3)
+    expect(toStrategyPayload({ ...base, take_profit_pct: '', stop_loss_pct: '0' }).take_profit_pct).toBeNull()
+    expect(toStrategyPayload({ ...base, side: 'sell', take_profit_pct: '5' }).take_profit_pct).toBeNull()
+    expect(toStrategyPayload({ ...base, account: 'kiwoom', stop_loss_pct: '3' }).stop_loss_pct).toBeNull()
+    expect(canUseExit({ side: 'buy', account: 'paper' })).toBe(true)
+    expect(canUseExit({ side: 'buy', account: 'kiwoom' })).toBe(false)
+  })
+
+  it('전략 목록에 설정을 표시한다', () => {
+    expect(exitLabel({ take_profit_pct: 5, stop_loss_pct: 3 })).toBe('익절 +5% · 손절 -3%')
+    expect(exitLabel({ take_profit_pct: null, stop_loss_pct: null })).toBe('')
+  })
+
+  it('익절·손절 매도 알림을 읽는다', () => {
+    const alert = { type: 'order', message: '[RSI] 삼성전자 3주 익절 매도 (+5.71%) @ 74,000원', order: { status: 'FILLED' } }
+    expect(speechText(alert)).toBe('삼성전자 3주 익절 매도 주문 체결')
   })
 })
 

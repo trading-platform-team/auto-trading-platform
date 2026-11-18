@@ -40,8 +40,20 @@ export function conditionLabel(cond) {
   return `${indicatorLabel(cond.left)} ${op} ${indicatorLabel(cond.right)}`
 }
 
+// 익절·손절은 모의 매수 전략만 (빈칸이면 사용 안 함)
+export const canUseExit = (form) => form.side === 'buy' && form.account !== 'kiwoom'
+const pctOrNull = (v) => (v === '' || v == null || Number(v) <= 0 ? null : Number(v))
+
+export function exitLabel(s) {
+  const parts = []
+  if (s.take_profit_pct != null) parts.push(`익절 +${s.take_profit_pct}%`)
+  if (s.stop_loss_pct != null) parts.push(`손절 -${s.stop_loss_pct}%`)
+  return parts.join(' · ')
+}
+
 // 폼 상태 → API 요청 body
 export function toStrategyPayload(form) {
+  const exit = canUseExit(form)
   const toIndicator = (side) => {
     const meta = INDICATORS.find((i) => i.value === side.name)
     const ind = { name: side.name }
@@ -56,6 +68,8 @@ export function toStrategyPayload(form) {
     cooldown_sec: Number(form.cooldown_sec),
     enabled: true,
     account: form.account === 'kiwoom' ? 'kiwoom' : 'paper', // kiwoom: 실거래 설정으로 키움 주문
+    take_profit_pct: exit ? pctOrNull(form.take_profit_pct) : null,
+    stop_loss_pct: exit ? pctOrNull(form.stop_loss_pct) : null,
     conditions: form.conditions.map((c) => ({
       left: toIndicator(c.left),
       op: c.op,

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { api } from '../api.js'
-import { conditionLabel, PRESETS, toStrategyPayload } from '../format.js'
+import { canUseExit, conditionLabel, exitLabel, PRESETS, toStrategyPayload } from '../format.js'
 import { ConditionList, emptyCond } from './ConditionEditor.jsx'
 import { usePolling } from '../hooks.js'
 
@@ -11,7 +11,7 @@ export default function StrategyPanel({ symbols, selected, beginner = false }) {
   const { data: strategies } = usePolling(api.strategies, 5000, [tick])
   const refresh = () => setTick((t) => t + 1)
   const [msg, setMsg] = useState(null)
-  const [form, setForm] = useState({ name: '', symbol: selected, side: 'buy', quantity: 10, cooldown_sec: 60, account: 'paper', conditions: [emptyCond()] })
+  const [form, setForm] = useState({ name: '', symbol: selected, side: 'buy', quantity: 10, cooldown_sec: 60, account: 'paper', take_profit_pct: '', stop_loss_pct: '', conditions: [emptyCond()] })
   const set = (patch) => setForm((f) => ({ ...f, ...patch }))
 
   const applyPreset = (p) => set({ name: p.name, side: p.side, conditions: p.conditions.map((c) => ({ ...emptyCond(), ...c })), symbol: selected })
@@ -69,6 +69,16 @@ export default function StrategyPanel({ symbols, selected, beginner = false }) {
           </label>
           <label data-explain={beginner ? 'quantity' : undefined}>수량<input type="number" min={1} value={form.quantity} onChange={(e) => set({ quantity: e.target.value })} /></label>
           <label data-explain={beginner ? 'cooldown' : undefined}>쿨다운(초)<input type="number" min={0} value={form.cooldown_sec} onChange={(e) => set({ cooldown_sec: e.target.value })} /></label>
+          {canUseExit(form) && (
+            <>
+              <label title="평균 단가보다 이만큼 오르면 이 전략이 산 수량을 팔아요">익절(%)
+                <input type="number" min={0} step="0.1" placeholder="없음" value={form.take_profit_pct} onChange={(e) => set({ take_profit_pct: e.target.value })} />
+              </label>
+              <label title="평균 단가보다 이만큼 내리면 이 전략이 산 수량을 팔아요">손절(%)
+                <input type="number" min={0} step="0.1" placeholder="없음" value={form.stop_loss_pct} onChange={(e) => set({ stop_loss_pct: e.target.value })} />
+              </label>
+            </>
+          )}
           {!beginner && (
             <label>주문 계좌
               <select value={form.account} onChange={(e) => set({ account: e.target.value })}>
@@ -96,7 +106,7 @@ export default function StrategyPanel({ symbols, selected, beginner = false }) {
               <b>{s.name}</b>{' '}
               <span className={`tag ${s.side === 'buy' ? 'up' : 'down'}`}>{s.side === 'buy' ? '매수' : '매도'}</span>{' '}
               {s.account === 'kiwoom' && <span className="tag warn" title="키움 계좌로 주문">키움</span>}{' '}
-              <span className="muted">{nameOf(s.symbol)} · {s.quantity}주</span>
+              <span className="muted">{nameOf(s.symbol)} · {s.quantity}주{exitLabel(s) && ` · ${exitLabel(s)}`}</span>
               <div className="muted small">{s.conditions.map(conditionLabel).join('  그리고  ')}</div>
             </div>
             <div className="row-actions">

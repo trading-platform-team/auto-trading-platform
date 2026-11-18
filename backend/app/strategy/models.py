@@ -26,6 +26,9 @@ class Strategy(Base):
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     # 주문 계좌: paper(자체 모의 체결) | kiwoom(사용자 키움 계좌, app/trading)
     account: Mapped[str | None] = mapped_column(String(10), default="paper", nullable=True)
+    # 익절·손절(%): 모의 매수 전략만. 평균 단가 대비 이만큼 오르거나 내리면 이 전략이 산 수량을 매도
+    take_profit_pct: Mapped[float | None] = mapped_column(Float, nullable=True)
+    stop_loss_pct: Mapped[float | None] = mapped_column(Float, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
 
