@@ -188,3 +188,21 @@ def test_stats_keep_deleted_strategy_and_empty(sqlite_db):
         assert snap["trades"][0]["strategy_name"] == "삭제된 전략"
         (row,) = snap["strategy_stats"]
         assert row["name"] == "삭제된 전략" and row["win_rate"] is None  # 매도 없음
+
+
+def test_reset_clears_paper_orders_but_keeps_strategies(sqlite_db):
+    """초기화하면 자동매매 모의 주문 내역도 지운다 (전략과 다른 사용자 주문은 그대로)"""
+    from app.strategy.broker import PaperBroker
+    from app.strategy.models import Order, Strategy
+
+    with db.new_session() as s:
+        sid = _make_strategy(s)
+        PaperBroker().place(s, s.get(Strategy, sid), 70000, {})
+        s.add(Order(user_id=2, strategy_name="남의 전략", symbol="005930", side="buy", quantity=1, price=1))
+        s.commit()
+
+        account.reset(s, 1)
+        assert s.query(Order).filter_by(user_id=1).count() == 0
+        assert s.query(Order).filter_by(user_id=2).count() == 1
+        assert s.get(Strategy, sid) is not None
+        assert account.snapshot(s, 1, {})["strategy_stats"] == []

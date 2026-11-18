@@ -4,7 +4,7 @@
 - 자동매매 주문(모의 전략): strategy/broker.py 의 PaperBroker가 전략이 본 시세로 같은 계좌에 체결
 - 현금이 부족하거나 보유 수량이 부족하면 주문 거부
 - 수수료 0.015% (매수·매도 각각), 매도 시 실현손익 기록
-- 초기화하면 처음 상태로 (거래 기록 삭제)
+- 초기화하면 처음 상태로 (거래 기록과 자동매매 모의 주문 내역 삭제, 전략·키움 실주문은 그대로)
 - 거래 기록에 직접 주문 / 자동매매(전략 이름) 구분, 전략별 통계 (거래 수·실현손익·승률)
 """
 
@@ -12,7 +12,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.edu.models import EduAccount, EduPosition, EduTrade, EduWatch
-from app.strategy.models import Strategy
+from app.strategy.models import Order, Strategy
 
 INITIAL_CASH = 10_000_000
 FEE_PCT = 0.015
@@ -107,7 +107,8 @@ def place_order(
 
 
 def reset(s: Session, user_id: int) -> None:
-    for model in (EduPosition, EduTrade):
+    # Order: 자동매매 모의 주문 내역 (이 계좌로 체결된 기록이라 같이 지움). 키움 실주문은 별도 테이블
+    for model in (EduPosition, EduTrade, Order):
         s.execute(delete(model).where(model.user_id == user_id))
     acc = get_or_create(s, user_id)
     acc.cash = acc.initial_cash

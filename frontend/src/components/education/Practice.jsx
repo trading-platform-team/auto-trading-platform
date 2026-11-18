@@ -63,7 +63,7 @@ export default function Practice({ onBadge }) {
   }
 
   const reset = async () => {
-    if (!window.confirm('교육용 계좌를 처음 상태(1,000만 원)로 되돌릴까요? 거래 기록도 지워져요.')) return
+    if (!window.confirm('교육용 계좌를 처음 상태(1,000만 원)로 되돌릴까요? 거래 기록과 자동매매 모의 주문 내역도 지워져요. 등록한 전략은 그대로예요.')) return
     setAccount(await api.eduReset())
     setMsg(null)
   }
