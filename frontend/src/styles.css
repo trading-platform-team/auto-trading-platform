@@ -136,6 +136,16 @@ small { font-size: 0.8em; }
 .btn-ghost { background: transparent; font-size: 12px; padding: 4px 10px; }
 .icon-btn { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 14px; padding: 4px; }
 .icon-btn:hover { color: var(--text); }
+
+/* ---------- 아이콘 (Lucide) ----------
+   크기: 메뉴 18, 버튼·탭 16, 작은 칩 14. 색은 글자색(currentColor)을 따라감 */
+.lucide { flex: none; }
+.btn, .icon-btn, .seg button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.user-chip .icon-btn { gap: 4px; }
+.feed-icon { display: inline-flex; flex: none; }
+.feed-item.order .feed-icon { color: var(--ok); }
+.feed-item.anomaly .feed-icon { color: var(--warn); }
+.feed-item.anomaly.high .feed-icon { color: var(--up); }
 input, select {
   background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: 6px;
   padding: 6px 8px; font: inherit; min-width: 0;
@@ -216,7 +226,8 @@ input:focus, select:focus { outline: none; border-color: var(--accent); }
 .tabs button, .seg button {
   background: none; border: none; color: var(--muted); font: inherit; padding: 6px 14px; border-radius: 8px; cursor: pointer;
 }
-.tabs button { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; min-width: 88px; }
+.tabs button { display: flex; align-items: center; gap: 8px; min-width: 104px; }
+.tab-text { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; }
 .tabs button small { font-size: 10px; opacity: .72; }
 .tabs button span { font-size: 13px; }
 .tabs button.on, .seg button.on { background: var(--accent); color: #fff; font-weight: 600; }
@@ -458,7 +469,7 @@ input:focus, select:focus { outline: none; border-color: var(--accent); }
 .feature-list { list-style: none; padding: 0; margin: 24px 0 0; display: flex; flex-direction: column; gap: 14px; }
 .feature-list li { display: flex; gap: 12px; align-items: flex-start; }
 .feature-list p { margin: 2px 0 0; }
-.feature-icon { font-size: 22px; }
+.feature-icon { display: grid; place-items: center; width: 40px; height: 40px; flex: none; border-radius: var(--radius); background: var(--accent-soft); color: var(--accent-text); }
 .login-card { width: 100%; max-width: 340px; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 22px; display: flex; flex-direction: column; gap: 12px; }
 .login-card .seg { align-self: stretch; }
 .login-card .seg button { flex: 1; }
