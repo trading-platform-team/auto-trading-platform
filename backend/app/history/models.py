@@ -20,4 +20,4 @@ class PriceBar(Base):
     low: Mapped[float] = mapped_column(Float)
     close: Mapped[float] = mapped_column(Float)
     volume: Mapped[int] = mapped_column(Integer)
-    source: Mapped[str] = mapped_column(String(20), default="synthetic")  # synthetic | kiwoom
+    source: Mapped[str] = mapped_column(String(20), default="synthetic")  # synthetic | public_data

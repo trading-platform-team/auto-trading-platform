@@ -4,6 +4,8 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.backtest.engine import max_drawdown_pct, run_backtest
+from app.history.models import PriceBar
+from app.history.service import load_bars, sync_public_bars
 from app.history.synthetic import generate_daily
 from app.main import app
 from app.timemachine import session as tm
@@ -22,6 +24,27 @@ def test_synthetic_is_deterministic_and_business_days_only():
     assert a == b
     assert all(d["date"].weekday() < 5 for d in a)
     assert all(d["low"] <= min(d["open"], d["close"]) and d["high"] >= max(d["open"], d["close"]) for d in a)
+
+
+def test_public_history_replaces_synthetic(sqlite_db):
+    class Stocks:
+        async def daily(self, symbol, start, end):
+            return [
+                {"date": "2024-01-02", "open": 100, "high": 110, "low": 90, "close": 105, "volume": 1234},
+                {"date": "2024-01-03", "open": 105, "high": 120, "low": 100, "close": 115, "volume": 2345},
+            ]
+
+    import asyncio
+
+    from app import db
+
+    with db.new_session() as s:
+        s.add(PriceBar(symbol="005930", date=date(2023, 12, 29), open=1, high=1, low=1, close=1, volume=1))
+        s.commit()
+        assert asyncio.run(sync_public_bars(s, Stocks(), "005930", date(2024, 1, 1), date(2024, 1, 31))) == 2
+        bars = load_bars(s, "005930")
+        assert [b["date"] for b in bars] == ["2024-01-02", "2024-01-03"]
+        assert all(b["source"] == "public_data" for b in bars)
 
 
 # ---------- 백테스트 엔진 ----------

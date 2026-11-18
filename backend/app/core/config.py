@@ -33,6 +33,10 @@ class Settings(BaseSettings):
     kiwoom_execution_ws: bool = True  # 실거래 켠 사용자의 체결 실시간 통보(WebSocket 00)
     kiwoom_dev_use_team_key: bool = False  # 사용자 키 등록 기능 전까지 팀 모의 키로 실거래 메뉴 주문 테스트
 
+    # 타임머신 과거 일봉 (금융위원회 주식시세정보, 공공데이터포털)
+    public_data_service_key: str = ""
+    public_data_stock_url: str = "https://apis.data.go.kr/1160100/GetStockSecuritiesInfoService_V2"
+
     # 타임머신 외부 사건 수집 (OpenDART 공시 + NAVER API HUB 뉴스)
     external_events_enabled: bool = False
     opendart_api_key: str = ""

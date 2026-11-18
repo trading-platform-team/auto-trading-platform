@@ -13,6 +13,7 @@ def isolated_settings(monkeypatch):
     monkeypatch.setattr(settings, "external_events_enabled", False)
     monkeypatch.setattr(settings, "kiwoom_app_key", "")  # 키움은 가짜 서버(tests/test_stocks.py)로만 시험
     monkeypatch.setattr(settings, "kiwoom_secret_key", "")
+    monkeypatch.setattr(settings, "public_data_service_key", "")  # 공공데이터도 전용 Mock 테스트에서만 호출
     yield
 
 

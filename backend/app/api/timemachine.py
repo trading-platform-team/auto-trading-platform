@@ -16,7 +16,8 @@ from app.core.config import settings
 from app.db import get_session
 from app.history.events import load_events, merge_events
 from app.history.external_events import fetch_disclosure_preview, load_external_events
-from app.history.service import load_bars, symbols_summary
+from app.history.public_data import PublicDataError
+from app.history.service import SEED_START, load_bars, symbols_summary, sync_public_bars
 from app.market.sources import DEFAULT_SYMBOLS
 from app.strategy.indicators import chart_series, clean
 from app.strategy.schemas import Condition
@@ -36,6 +37,14 @@ def _bars_or_404(s: Session, symbol: str) -> list[dict]:
 
 def _name(symbol: str) -> str:
     return DEFAULT_SYMBOLS.get(symbol, (symbol,))[0]
+
+
+async def _refresh_history(request: Request, s: Session, symbol: str, start: date, end: date) -> None:
+    """공공데이터 키가 있으면 실제 일봉으로 갱신하고, 실패하면 저장된 교육용 데이터로 계속한다."""
+    try:
+        await sync_public_bars(s, request.app.state.public_stocks, symbol, start, end)
+    except (PublicDataError, OSError, ValueError):
+        s.rollback()
 
 
 # ---------- 과거 시세 (#9) ----------
@@ -69,7 +78,10 @@ async def disclosure_preview(rcept_no: str):
 
 
 @router.get("/history/{symbol}")
-def history(symbol: str, s: SessionDep, start: date | None = None, end: date | None = None):
+async def history(symbol: str, request: Request, s: SessionDep, start: date | None = None, end: date | None = None):
+    if start and end and start > end:
+        raise HTTPException(422, "시작일은 종료일보다 늦을 수 없습니다")
+    await _refresh_history(request, s, symbol, start or SEED_START, end or date.today())
     return load_bars(s, symbol, start, end)
 
 
@@ -93,7 +105,8 @@ def backtest_presets():
 
 
 @router.post("/backtest")
-def backtest(body: BacktestIn, s: SessionDep):
+async def backtest(body: BacktestIn, request: Request, s: SessionDep):
+    await _refresh_history(request, s, body.symbol, SEED_START, body.end or date.today())
     bars = _bars_or_404(s, body.symbol)
     if body.end:
         bars = [b for b in bars if b["date"] <= body.end.isoformat()]
@@ -190,6 +203,7 @@ class OrderIn(BaseModel):
 
 @router.post("/timemachine/sessions", status_code=201)
 async def create_session(body: SessionIn, request: Request, s: SessionDep, user: CurrentUser):
+    await _refresh_history(request, s, body.symbol, SEED_START, date.today())
     bars = _bars_or_404(s, body.symbol)
     try:
         st = tm.create(bars, body.symbol, _name(body.symbol), body.start_date.isoformat(), body.initial_cash)
