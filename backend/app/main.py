@@ -10,6 +10,7 @@ from app import db
 from app.api import auth, edu, health, market, stocks, strategies, timemachine, trading, ws
 from app.auth import security, vault
 from app.core.config import settings
+from app.history.public_data import PublicStockClient
 from app.kiwoom import platform
 from app.kiwoom.watch import publish_strategy_symbols_forever
 from app.market.consumer import consume_forever
@@ -40,6 +41,7 @@ async def lifespan(app: FastAPI):
         log.info("JWT 서명 키 출처: %s", source)
     kiwoom = platform.open_team_client()  # 가상계좌 연습·실거래 화면·개발용 주문이 같이 쓰는 팀 키 클라이언트
     app.state.stocks = StockService(app.state.redis, kiwoom)
+    app.state.public_stocks = PublicStockClient(settings.public_data_service_key, settings.public_data_stock_url)
     app.state.stocks.warm()  # 종목 목록을 미리 받기 시작
     log.info("가상계좌 연습 시세: %s", "키움 REST API" if kiwoom.enabled else "가상 시세 (키움 키 없음)")
     tasks = [asyncio.create_task(consume_forever(app.state.redis))] if settings.enable_consumer else []
@@ -51,6 +53,7 @@ async def lifespan(app: FastAPI):
     for task in tasks:
         task.cancel()
     await platform.close_team_client()
+    await app.state.public_stocks.close()
     await app.state.redis.aclose()
 
 

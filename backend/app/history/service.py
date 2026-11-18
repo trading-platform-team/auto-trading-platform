@@ -2,7 +2,7 @@
 
 from datetime import date
 
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from app.history.models import PriceBar
@@ -42,6 +42,40 @@ def load_bars(s: Session, symbol: str, start: date | None = None, end: date | No
         }
         for b in s.scalars(q.order_by(PriceBar.date))
     ]
+
+
+async def sync_public_bars(s: Session, stocks, symbol: str, start: date, end: date) -> int:
+    """금융위원회 실제 일봉을 저장한다. 성공한 종목의 기존 가상 일봉은 제거한다."""
+    bars = await stocks.daily(symbol, start, end)
+    if not bars:
+        return 0
+
+    existing = {
+        row.date: row
+        for row in s.scalars(
+            select(PriceBar).where(
+                PriceBar.symbol == symbol,
+                PriceBar.source == "public_data",
+                PriceBar.date >= start,
+                PriceBar.date <= end,
+            )
+        )
+    }
+    s.execute(delete(PriceBar).where(PriceBar.symbol == symbol, PriceBar.source != "public_data"))
+    for bar in bars:
+        day = date.fromisoformat(bar["date"])
+        row = existing.get(day)
+        if row is None:
+            row = PriceBar(symbol=symbol, date=day)
+            s.add(row)
+        row.open = bar["open"]
+        row.high = bar["high"]
+        row.low = bar["low"]
+        row.close = bar["close"]
+        row.volume = bar["volume"]
+        row.source = "public_data"
+    s.commit()
+    return len(bars)
 
 
 def symbols_summary(s: Session) -> list[dict]:
