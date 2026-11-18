@@ -1,6 +1,7 @@
+import { useState } from 'react'
 import {
-  Area, CartesianGrid, ComposedChart, Line, LineChart, ReferenceDot, ReferenceLine, ResponsiveContainer, Tooltip, XAxis,
-  YAxis,
+  Area, Bar, CartesianGrid, ComposedChart, Line, LineChart, ReferenceDot, ReferenceLine, ResponsiveContainer, Tooltip,
+  XAxis, YAxis,
 } from 'recharts'
 import { fmtNum } from '../../format.js'
 
@@ -8,9 +9,60 @@ const C = { price: '#e8ecf1', sma5: '#f5b041', sma20: '#5dade2', band: '#8e7cc3'
 const tip = { background: '#151a22', border: '1px solid #2a313d' }
 const short = (d) => d?.slice(2) // 2024-06-03 → 24-06-03
 
+function Candlestick({ x, y, width, height, payload }) {
+  const { open, high, low, close } = payload
+  if (![open, high, low, close].every(Number.isFinite)) return null
+  const rising = close >= open
+  const color = rising ? '#f2555a' : '#4c8ff5'
+  const range = high - low || 1
+  const toY = (price) => y + ((high - price) / range) * height
+  const openY = toY(open)
+  const closeY = toY(close)
+  const bodyY = Math.min(openY, closeY)
+  const bodyHeight = Math.max(2, Math.abs(closeY - openY))
+  const center = x + width / 2
+  const bodyWidth = Math.max(3, Math.min(width * 0.62, 12))
+  return (
+    <g>
+      <line x1={center} x2={center} y1={y} y2={y + height} stroke={color} strokeWidth="1.2" />
+      <rect
+        x={center - bodyWidth / 2}
+        y={bodyY}
+        width={bodyWidth}
+        height={bodyHeight}
+        fill={rising ? color : '#151a22'}
+        stroke={color}
+        strokeWidth="1.2"
+      />
+    </g>
+  )
+}
+
+function PriceTooltip({ active, payload, label }) {
+  if (!active || !payload?.length) return null
+  const row = payload[0].payload
+  const prices = row.open == null
+    ? [['종가', row.close]]
+    : [['시가', row.open], ['고가', row.high], ['저가', row.low], ['종가', row.close]]
+  return (
+    <div className="chart-tooltip">
+      <b>{label}</b>
+      {prices.map(([name, value]) => <span key={name}>{name} {fmtNum(value)}</span>)}
+      {row.sma5 != null && <span style={{ color: C.sma5 }}>SMA5 {fmtNum(row.sma5)}</span>}
+      {row.sma20 != null && <span style={{ color: C.sma20 }}>SMA20 {fmtNum(row.sma20)}</span>}
+    </div>
+  )
+}
+
 // 일봉 차트: 종가 + SMA5·SMA20 + 볼린저밴드, 매매 표시, 이상거래 표시, RSI
 export default function DailyChart({ rows, points = [], anomalies = [], events = [], height = 280 }) {
-  const data = rows.map((r) => ({ ...r, band: r.bb_upper && r.bb_lower ? [r.bb_lower, r.bb_upper] : null }))
+  const [chartMode, setChartMode] = useState('line')
+  const data = rows.map((r) => ({
+    ...r,
+    band: r.bb_upper && r.bb_lower ? [r.bb_lower, r.bb_upper] : null,
+    candleRange: Number.isFinite(r.low) && Number.isFinite(r.high) ? [r.low, r.high] : null,
+  }))
+  const hasCandles = data.some((r) => r.candleRange && Number.isFinite(r.open) && Number.isFinite(r.close))
   const dates = new Set(data.map((r) => r.date))
   const byDate = Object.fromEntries(data.map((r) => [r.date, r]))
   const anomalyDates = [...new Set(anomalies.map((a) => a.timestamp))].filter((d) => dates.has(d))
@@ -18,8 +70,21 @@ export default function DailyChart({ rows, points = [], anomalies = [], events =
 
   return (
     <>
+      <div className="chart-switch" role="group" aria-label="차트 종류 선택">
+        <button type="button" className={chartMode === 'line' ? 'on' : ''} onClick={() => setChartMode('line')}>
+          선 차트
+        </button>
+        <button
+          type="button"
+          className={chartMode === 'candle' ? 'on' : ''}
+          onClick={() => setChartMode('candle')}
+          disabled={!hasCandles}
+        >
+          캔들 차트
+        </button>
+      </div>
       <div className="legend">
-        <span style={{ color: C.price }}>━ 종가</span>
+        <span style={{ color: C.price }}>{chartMode === 'candle' ? '▮ 캔들' : '━ 종가'}</span>
         <span style={{ color: C.sma5 }}>━ SMA5</span>
         <span style={{ color: C.sma20 }}>━ SMA20</span>
         <span style={{ color: C.band }}>▒ 볼린저밴드</span>
@@ -33,11 +98,16 @@ export default function DailyChart({ rows, points = [], anomalies = [], events =
           <CartesianGrid stroke="#252b36" />
           <XAxis dataKey="date" tickFormatter={short} stroke="#6b7685" fontSize={11} minTickGap={40} />
           <YAxis domain={['auto', 'auto']} stroke="#6b7685" fontSize={11} tickFormatter={fmtNum} width={70} />
-          <Tooltip contentStyle={tip} formatter={(v, k) => [Array.isArray(v) ? v.map(fmtNum).join(' ~ ') : fmtNum(v), k]} />
+          <Tooltip content={<PriceTooltip />} />
           <Area dataKey="band" name="볼린저밴드" stroke="none" fill={C.band} fillOpacity={0.15} isAnimationActive={false} />
+          {chartMode === 'candle' && (
+            <Bar dataKey="candleRange" name="캔들" shape={<Candlestick />} isAnimationActive={false} />
+          )}
           <Line dataKey="sma20" name="SMA20" stroke={C.sma20} dot={false} strokeWidth={1.5} isAnimationActive={false} />
           <Line dataKey="sma5" name="SMA5" stroke={C.sma5} dot={false} strokeWidth={1.5} isAnimationActive={false} />
-          <Line dataKey="close" name="종가" stroke={C.price} dot={false} strokeWidth={2} isAnimationActive={false} />
+          {chartMode === 'line' && (
+            <Line dataKey="close" name="종가" stroke={C.price} dot={false} strokeWidth={2} isAnimationActive={false} />
+          )}
           {anomalyDates.map((d) => (
             <ReferenceDot key={`a-${d}`} x={d} y={byDate[d].close} r={6} fill="none" stroke="#f5a623" strokeWidth={2} />
           ))}

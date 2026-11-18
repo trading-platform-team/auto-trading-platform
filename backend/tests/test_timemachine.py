@@ -125,6 +125,7 @@ def test_backtest_api(client):
     r = client.post("/backtest", json=body).json()
     assert {"total_return_pct", "buy_and_hold_pct", "max_drawdown_pct", "win_rate_pct"} <= r["metrics"].keys()
     assert r["trades"] and r["chart"][0]["date"] >= "2024-01-02" and r["source"] == "synthetic"
+    assert {"open", "high", "low", "close", "volume"} <= r["chart"][0].keys()
 
     no_exit = {**body, "sell_conditions": []}
     assert client.post("/backtest", json=no_exit).status_code == 422

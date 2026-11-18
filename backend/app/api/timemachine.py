@@ -117,7 +117,15 @@ def backtest(body: BacktestIn, s: SessionDep):
     )
     series = chart_series([b["close"] for b in bars])
     result["chart"] = [
-        {"date": b["date"], "close": b["close"], **{k: clean(v[i]) for k, v in series.items()}}
+        {
+            "date": b["date"],
+            "open": b["open"],
+            "high": b["high"],
+            "low": b["low"],
+            "close": b["close"],
+            "volume": b["volume"],
+            **{k: clean(v[i]) for k, v in series.items()},
+        }
         for i, b in enumerate(bars)
         if i >= start_index
     ]
