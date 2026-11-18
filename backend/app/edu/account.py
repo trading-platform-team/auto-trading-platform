@@ -1,6 +1,7 @@
 """교육용 가상계좌: 회원가입하면 1,000만 원으로 자동 개설 (예전 가입자는 처음 사용할 때 개설)
 
-- 키움 실제 현재가로 시장가 체결 (키움 연결이 안 되면 가상 시세)
+- 직접 주문: 키움 실제 현재가로 시장가 체결 (키움 연결이 안 되면 가상 시세)
+- 자동매매 주문(모의 전략): strategy/broker.py 의 PaperBroker가 전략이 본 시세로 같은 계좌에 체결
 - 현금이 부족하거나 보유 수량이 부족하면 주문 거부
 - 수수료 0.015% (매수·매도 각각), 매도 시 실현손익 기록
 - 초기화하면 처음 상태로 (거래 기록 삭제)
@@ -38,7 +39,21 @@ def get_or_create(s: Session, user_id: int) -> EduAccount:
     return acc
 
 
-def place_order(s: Session, user_id: int, symbol: str, side: str, quantity: int, price: float) -> EduTrade:
+def place_order(
+    s: Session,
+    user_id: int,
+    symbol: str,
+    side: str,
+    quantity: int,
+    price: float,
+    strategy_id: int | None = None,
+    commit: bool = True,
+) -> EduTrade:
+    """시장가 주문. 거부할 때는 계좌를 바꾸기 전에 OrderRejected를 올린다.
+
+    strategy_id: 자동매매 주문이면 전략 ID (직접 주문은 None)
+    commit=False: 호출한 쪽이 다른 기록(주문 내역 등)과 함께 한 번에 커밋할 때
+    """
     if quantity <= 0:
         raise OrderRejected("수량은 1주 이상이어야 해요")
     if price <= 0:
@@ -72,10 +87,20 @@ def place_order(s: Session, user_id: int, symbol: str, side: str, quantity: int,
         raise OrderRejected("side는 buy 또는 sell")
 
     trade = EduTrade(
-        user_id=user_id, symbol=symbol, side=side, quantity=quantity, price=price, fee=fee, realized_pnl=pnl
+        user_id=user_id,
+        symbol=symbol,
+        side=side,
+        quantity=quantity,
+        price=price,
+        fee=fee,
+        realized_pnl=pnl,
+        strategy_id=strategy_id,
     )
     s.add(trade)
-    s.commit()
+    if commit:
+        s.commit()
+    else:
+        s.flush()  # trade.id를 바로 쓸 수 있게
     return trade
 
 

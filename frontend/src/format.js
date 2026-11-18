@@ -90,6 +90,10 @@ export const PRESETS = [
   },
 ]
 
+// 주문 상태 표시 (모의 주문 내역)
+const ORDER_STATUS = { FILLED: '체결', SUBMITTED: '접수', REJECTED: '거부' }
+export const orderStatusLabel = (status) => ORDER_STATUS[status] ?? '체결' // 예전 주문은 상태가 비어 있을 수 있음
+
 // 음성 알림 문장
 export function speechText(alert) {
   if (alert.type === 'order') {

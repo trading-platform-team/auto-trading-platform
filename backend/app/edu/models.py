@@ -68,6 +68,8 @@ class EduTrade(Base):
     price: Mapped[float] = mapped_column(Float)
     fee: Mapped[float] = mapped_column(Float)
     realized_pnl: Mapped[float | None] = mapped_column(Float, nullable=True)  # 매도 시 실현손익
+    # 자동매매 주문이면 전략 ID, 직접 주문이면 None
+    strategy_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
 

@@ -1,5 +1,5 @@
 import { api } from '../api.js'
-import { fmtNum, fmtTime } from '../format.js'
+import { fmtNum, fmtTime, orderStatusLabel } from '../format.js'
 import { usePolling } from '../hooks.js'
 
 export default function OrderTable({ beginner = false }) {
@@ -13,7 +13,7 @@ export default function OrderTable({ beginner = false }) {
         <span className="muted">최근 {orders.length}건</span>
       </div>
       {orders.length === 0 ? (
-        <p className="empty">아직 체결된 주문이 없어요</p>
+        <p className="empty">아직 주문이 없어요</p>
       ) : (
         <div className="scroll">
           <table className="table">
@@ -25,6 +25,7 @@ export default function OrderTable({ beginner = false }) {
                 <th>구분</th>
                 <th className="r">수량</th>
                 <th className="r" data-explain={beginner ? 'filledPrice' : undefined}>체결가</th>
+                <th>상태</th>
               </tr>
             </thead>
             <tbody>
@@ -35,7 +36,10 @@ export default function OrderTable({ beginner = false }) {
                   <td>{o.symbol}</td>
                   <td className={o.side === 'buy' ? 'up' : 'down'}>{o.side === 'buy' ? '매수' : '매도'}</td>
                   <td className="r num">{o.quantity}</td>
-                  <td className="r num">{fmtNum(o.price)}</td>
+                  <td className="r num">{o.status === 'REJECTED' ? '—' : fmtNum(o.price)}</td>
+                  <td className="muted" title={o.reason?.reject_reason ?? ''}>
+                    {o.status === 'REJECTED' ? <span className="level">{orderStatusLabel(o.status)}</span> : orderStatusLabel(o.status)}
+                  </td>
                 </tr>
               ))}
             </tbody>

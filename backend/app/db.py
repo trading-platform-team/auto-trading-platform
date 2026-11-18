@@ -53,6 +53,7 @@ def init_db(retries: int = 30, delay: float = 2.0) -> None:
 _ADDED_COLUMNS = {
     "strategies": {"user_id": "INTEGER", "account": "VARCHAR(10)"},
     "orders": {"user_id": "INTEGER"},
+    "edu_trades": {"strategy_id": "INTEGER"},
 }
 
 
