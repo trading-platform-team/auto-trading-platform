@@ -79,6 +79,20 @@ async def test_cache_keeps_only_recent_ticks():
     assert len(await get_ticks(r, "005930", limit=1000)) == MAX_TICKS
 
 
+@pytest.mark.asyncio
+async def test_cache_clears_chart_when_price_source_changes():
+    r = fakeredis.FakeAsyncRedis(decode_responses=True)
+    mock = MockSource(symbols={"005930": ("삼성전자", 70000)}, seed=4).next_ticks()[0]
+    mock["source"] = "mock"
+    await save_tick(r, mock)
+    await save_tick(r, {**mock, "price": 190000, "source": "kis_replay"})
+
+    rows = await get_ticks(r, "005930", limit=10)
+    assert len(rows) == 1
+    assert rows[0]["price"] == 190000
+    assert rows[0]["source"] == "kis_replay"
+
+
 def test_market_api(monkeypatch, sqlite_db):
     monkeypatch.setattr("app.main.settings.enable_consumer", False)
     fake = fakeredis.FakeAsyncRedis(decode_responses=True)
