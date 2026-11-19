@@ -65,3 +65,18 @@ export const ORDER_RESULT_TEXT = {
   BLOCKED: '위험 제한으로 주문을 막았어요',
   REJECTED: '키움이 주문을 거부했어요',
 }
+
+// 등록된 키움 키 표시: 실전 서버 키 = 실제 주계좌, 모의투자 서버 키 = 모의투자 계좌
+export const KEY_LABEL = { real: '실전 계좌(실제 돈)', mock: '모의투자 계좌' }
+export function keyStatus(settings) {
+  const keys = settings?.keys
+  if (!keys) return null
+  const have = ['real', 'mock'].filter((e) => keys[e]?.registered)
+  const selected = settings.env
+  return {
+    text: have.length ? `등록된 키: ${have.map((e) => KEY_LABEL[e]).join(' · ')}` : '등록된 키움 키가 없어요',
+    real: have.includes('real'),
+    // 고른 서버에 맞는 키가 없으면 주문이 안 나간다
+    missing: keys[selected]?.registered ? null : `${KEY_LABEL[selected]} 키가 없어 ${selected === 'real' ? '실전' : '모의투자'} 서버로 주문할 수 없어요`,
+  }
+}

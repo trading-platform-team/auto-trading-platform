@@ -110,6 +110,7 @@ export const api = {
   kwOrders: (limit = 30) => request(`/trading/kiwoom/orders?limit=${limit}`),
   kwOrder: (body) => request('/trading/kiwoom/orders', { method: 'POST', body: JSON.stringify(body) }),
   kwCancel: (id) => request(`/trading/kiwoom/orders/${id}/cancel`, { method: 'POST' }),
+  kwOrderbook: (code) => request(`/market/orderbook/${code}`), // 키움 실시간 호가
 }
 
 export function alertsSocketUrl() {

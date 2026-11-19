@@ -2,6 +2,9 @@ import re
 
 from fastapi import APIRouter, HTTPException, Request
 
+from app.kiwoom import orderbook as kiwoom_orderbook
+from app.kiwoom import platform
+from app.kiwoom.client import KiwoomError
 from app.kiwoom.watch import touch
 from app.market.cache import get_latest, get_ticks
 from app.stocks.service import StockNotFound
@@ -47,6 +50,22 @@ async def quote(symbol: str, request: Request):
     if not q or not q.get("price"):
         raise HTTPException(404, "시세가 없습니다")
     return q
+
+
+@router.get("/orderbook/{symbol}")
+async def orderbook(symbol: str, request: Request):
+    """키움 실시간 호가 10단계 (실거래 화면). 팀 키가 없으면 503"""
+    _check_code(symbol)
+    client = platform.team_client()
+    if not client or not client.enabled:
+        raise HTTPException(503, "키움 키가 없어 호가를 볼 수 없어요")
+    try:
+        data, _ = await client.call(kiwoom_orderbook.API_ID, kiwoom_orderbook.PATH, {"stk_cd": symbol})
+        return kiwoom_orderbook.build(symbol, data)
+    except KiwoomError as e:
+        raise HTTPException(502, f"키움 호가 조회 실패: [{e.code}] {e.message}") from e
+    except ValueError as e:
+        raise HTTPException(503, str(e)) from e
 
 
 @router.get("/prices")
