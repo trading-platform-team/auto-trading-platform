@@ -1,9 +1,11 @@
 """시세 데이터 소스
 
 - MockSource: 키움 API 키 없이 개발·시연할 수 있는 가상 시세 (랜덤워크 + 가끔 급등락)
+- KisReplaySource: 한국투자 실제 과거 1분봉을 5초마다 Kafka로 재생
 - KiwoomSource: 키움 실시간 시세 (플랫폼 키, 보고 있는 종목·전략 종목만 동적 구독)
 """
 
+import asyncio
 import random
 from datetime import datetime, timezone
 
@@ -61,6 +63,84 @@ class MockSource:
             self.prices[symbol] = max(1.0, self.prices[symbol] * (1 + change))
             ticks.append(make_tick(symbol, name, self.prices[symbol], volume, bid, ask))
         return ticks
+
+
+class KisReplaySource:
+    """한국투자 과거 분봉을 자동매매 엔진용 실시간 시세처럼 재생한다."""
+
+    def __init__(self, client=None, symbols: dict | None = None, interval: float | None = None, redis=None,
+                 request_delay: float = 1.0):
+        from app.core.config import settings
+        from app.history.kis_minutes import KisMinuteClient
+
+        self.client = client or KisMinuteClient(
+            settings.kis_app_key,
+            settings.kis_app_secret,
+            settings.kis_base_url,
+            settings.kis_replay_interval_sec,
+            redis=redis,
+        )
+        if not self.client.enabled:
+            raise RuntimeError(
+                "한국투자 키가 없습니다. .env에 KIS_APP_KEY / KIS_APP_SECRET을 넣거나 "
+                "MARKET_SOURCE=mock으로 실행하세요"
+            )
+        self.symbols = symbols or DEFAULT_SYMBOLS
+        self.interval = settings.kis_replay_interval_sec if interval is None else max(0, interval)
+        self.request_delay = max(0, request_delay)
+
+    async def close(self) -> None:
+        await self.client.close()
+
+    async def stream(self):
+        import logging
+
+        log = logging.getLogger(__name__)
+        bars = None
+        while bars is None:
+            try:
+                loaded = {}
+                # 토큰 중복 발급과 API 순간 호출 집중을 피하려고 종목별로 차례대로 준비한다.
+                for symbol in self.symbols:
+                    last_error = None
+                    for attempt in range(3):
+                        try:
+                            loaded[symbol] = await self.client.minutes(symbol)
+                            break
+                        except Exception as exc:  # 종목별 순간 제한은 짧게 재시도
+                            last_error = exc
+                            if attempt < 2:
+                                await asyncio.sleep(2)
+                    if symbol not in loaded:
+                        raise last_error or RuntimeError(f"{symbol} 분봉을 받지 못했습니다")
+                    await asyncio.sleep(self.request_delay)
+                bars = loaded
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:  # 외부 API 일시 제한이면 프로세스를 종료하지 않고 재시도
+                log.warning("한국투자 분봉 준비 실패: %s → 60초 후 재시도", exc)
+                await asyncio.sleep(60)
+        cursor = 0
+        while True:
+            ticks = []
+            for symbol, (name, _) in self.symbols.items():
+                rows = bars[symbol]
+                row = rows[cursor % len(rows)]
+                ticks.append({
+                    "symbol": symbol,
+                    "name": name,
+                    "price": round(row["price"]),
+                    "volume": row["volume"],
+                    "bid_size": 0,
+                    "ask_size": 0,
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "market_timestamp": row["timestamp"],
+                    "price_date": row["price_date"],
+                    "source": "kis_replay",
+                })
+            yield ticks
+            cursor += 1
+            await asyncio.sleep(self.interval)
 
 
 class KiwoomSource:
@@ -153,4 +233,6 @@ def create_source(name: str, redis=None):
         return MockSource()
     if name == "kiwoom":
         return KiwoomSource(redis)
+    if name == "kis_replay":
+        return KisReplaySource(redis=redis)
     raise ValueError(f"알 수 없는 시세 소스: {name}")

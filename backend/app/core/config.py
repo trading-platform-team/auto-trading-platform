@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     ai_service_url: str = "http://localhost:8001"
 
     # 시세 파이프라인
-    market_source: str = "mock"  # mock | kiwoom
+    market_source: str = "mock"  # mock | kis_replay | kiwoom
     price_topic: str = "stock.price"
     tick_interval_sec: float = 1.0
     enable_consumer: bool = True

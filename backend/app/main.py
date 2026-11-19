@@ -44,7 +44,11 @@ async def lifespan(app: FastAPI):
     app.state.stocks = StockService(app.state.redis, kiwoom)
     app.state.public_stocks = PublicStockClient(settings.public_data_service_key, settings.public_data_stock_url)
     app.state.kis_minutes = KisMinuteClient(
-        settings.kis_app_key, settings.kis_app_secret, settings.kis_base_url, settings.kis_replay_interval_sec
+        settings.kis_app_key,
+        settings.kis_app_secret,
+        settings.kis_base_url,
+        settings.kis_replay_interval_sec,
+        redis=app.state.redis,
     )
     app.state.stocks.warm()  # 종목 목록을 미리 받기 시작
     log.info("가상계좌 연습 시세: %s", "키움 REST API" if kiwoom.enabled else "가상 시세 (키움 키 없음)")
