@@ -177,6 +177,7 @@ def test_aggregator_sums_volume_and_keeps_book():
     [tick] = agg.flush(lambda s: "삼성전자")
     assert tick["price"] == 71900 and tick["volume"] == 15
     assert tick["bid_size"] == 1200 and tick["ask_size"] == 800 and tick["name"] == "삼성전자"
+    assert tick["source"] == "kiwoom"  # 키움 실거래 전략은 이 시세에만 주문
     assert agg.flush(lambda s: s) == []  # 새 체결이 없으면 내보내지 않음
 
 
@@ -376,7 +377,9 @@ def test_strategy_with_kiwoom_account_orders_through_broker(client, fake, fake_r
     assert st["account"] == "kiwoom"
     for p in np.arange(140, 100, -1, dtype=float):  # 계속 하락 → RSI 0
         client.portal.call(save_tick, fake_redis, make_tick("005930", "삼성전자", p, 100, 500, 500))
-    [order] = client.portal.call(on_tick, fake_redis, make_tick("005930", "삼성전자", 100, 100, 500, 500))
+    mock_tick = make_tick("005930", "삼성전자", 100, 100, 500, 500)
+    assert client.portal.call(on_tick, fake_redis, mock_tick) == []  # 가상 시세로는 실제 주문을 내지 않는다
+    [order] = client.portal.call(on_tick, fake_redis, {**mock_tick, "source": "kiwoom"})
     assert order["status"] == "SUBMITTED" and order["strategy_id"] == st["id"]
     assert fake.calls[-1][0] == "kt10000" and fake.calls[-1][1]["trde_tp"] == "3"
     alert = json.loads(client.portal.call(fake_redis.lindex, "alerts", 0))

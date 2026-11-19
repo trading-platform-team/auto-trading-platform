@@ -123,6 +123,8 @@ async def on_tick(r, tick: dict) -> list[dict]:
     closes = [t["price"] for t in await get_ticks(r, tick["symbol"], limit=300)]
     executed = []
     for st in strategies:
+        if st.account == "kiwoom" and tick.get("source") != "kiwoom":
+            continue  # 실제 돈 주문은 키움 실시간 시세로만 (가상 시세·과거 분봉 재생으로 주문하지 않음)
         if uses_exit(st):
             found = await asyncio.to_thread(_check_exit, st.id, tick["price"])
             if found:
