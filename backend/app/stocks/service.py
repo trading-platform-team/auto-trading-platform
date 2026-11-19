@@ -94,7 +94,28 @@ def _quote_row(row: dict) -> dict:
     }
 
 
+def daily_change(price: float, price_date: str | None, day_quote: dict | None) -> tuple[float | None, float | None]:
+    """재생 가격의 전날 종가 대비 등락. day_quote는 공공데이터 최근 종가(price, change, price_date)
+
+    공공데이터는 하루 늦게 올라오므로, 재생 날짜보다 이전 날짜면 그 종가가 곧 전날 종가다.
+    """
+    if not day_quote or not day_quote.get("price"):
+        return None, None
+    if price_date and day_quote.get("price_date") and day_quote["price_date"] < price_date:
+        prev = day_quote["price"]
+    elif day_quote.get("change") is not None:
+        prev = day_quote["price"] - day_quote["change"]
+    else:
+        return None, None
+    if prev <= 0:
+        return None, None
+    change = price - prev
+    return change, round(change / prev * 100, 2)
+
+
 class StockService:
+    replay = None  # 한국투자 분봉 재생 클라이언트 (main에서 연결). 이미 받아 둔 종목만 목록 가격에 반영
+
     def __init__(self, redis, kiwoom: KiwoomClient | None = None, public: PublicStockClient | None = None):
         self.redis = redis
         self.kiwoom = kiwoom if kiwoom and kiwoom.enabled else None
@@ -296,8 +317,10 @@ class StockService:
         if lacking:
             mock = {t["symbol"]: t for t in await get_latest(self.redis)}
             for c in lacking:
-                if c in mock:
-                    t = mock[c]
+                t = mock.get(c)
+                if t and t.get("source") in (None, "mock") and (master.get(c) or {}).get("quote"):
+                    continue  # 실제 종가가 있는 종목에는 가상 시세를 섞지 않는다
+                if t:
                     change = change_pct = None
                     day = (master.get(c) or {}).get("quote")
                     if day and day.get("change") is not None and t.get("source") != "mock":
@@ -317,6 +340,13 @@ class StockService:
         for c in codes:
             if c not in out and (master.get(c) or {}).get("quote"):
                 out[c] = {"symbol": c, **master[c]["quote"]}
+        # 이미 재생 중인 종목은 상세 화면과 같은 재생 가격으로 (전날 종가 대비 등락)
+        if self.replay is not None:
+            for c in codes:
+                rq = self.replay.cached_quote(c)
+                if rq:
+                    change, pct = daily_change(rq["price"], rq.get("price_date"), (master.get(c) or {}).get("quote"))
+                    out[c] = {**rq, "change": change, "change_pct": pct}
         for c, q in out.items():
             meta = master.get(c, {})
             q.update(
