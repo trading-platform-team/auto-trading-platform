@@ -79,11 +79,13 @@ export function toStrategyPayload(form) {
 }
 
 // 시연용 전략 프리셋
+// 매수·매도 신호는 "구간 안에 있는 동안"(<, >)이 아니라 "선을 넘는 순간"(돌파)으로 잡는다.
+// 구간 조건이면 그 구간에 머무는 동안 쿨다운마다 주문이 반복된다.
 export const PRESETS = [
   {
-    name: 'RSI 과매도 매수',
+    name: 'RSI 과매도 반등 매수',
     side: 'buy',
-    conditions: [{ left: { name: 'RSI', period: 14 }, op: '<', rightType: 'number', rightValue: 30 }],
+    conditions: [{ left: { name: 'RSI', period: 14 }, op: 'cross_up', rightType: 'number', rightValue: 30 }],
   },
   {
     name: '골든크로스 매수',
@@ -93,14 +95,23 @@ export const PRESETS = [
     ],
   },
   {
-    name: '볼린저 하단 이탈 매수',
+    name: '볼린저 하단 복귀 매수',
     side: 'buy',
-    conditions: [{ left: { name: 'PRICE' }, op: '<', rightType: 'indicator', right: { name: 'BB_LOWER', period: 20 } }],
+    conditions: [
+      { left: { name: 'PRICE' }, op: 'cross_up', rightType: 'indicator', right: { name: 'BB_LOWER', period: 20 } },
+    ],
   },
   {
-    name: 'RSI 과매수 매도',
+    name: 'RSI 과매수 꺾임 매도',
     side: 'sell',
-    conditions: [{ left: { name: 'RSI', period: 14 }, op: '>', rightType: 'number', rightValue: 70 }],
+    conditions: [{ left: { name: 'RSI', period: 14 }, op: 'cross_down', rightType: 'number', rightValue: 70 }],
+  },
+  {
+    name: '데드크로스 매도',
+    side: 'sell',
+    conditions: [
+      { left: { name: 'SMA', period: 5 }, op: 'cross_down', rightType: 'indicator', right: { name: 'SMA', period: 20 } },
+    ],
   },
 ]
 

@@ -1,17 +1,17 @@
 import { useState } from 'react'
 import { api } from '../api.js'
 import { canUseExit, conditionLabel, exitLabel, PRESETS, toStrategyPayload } from '../format.js'
-import { ConditionList, emptyCond } from './ConditionEditor.jsx'
+import { ConditionList, emptyCond, signalCond } from './ConditionEditor.jsx'
 import { usePolling } from '../hooks.js'
 
-const PRESET_HELP = ['presetRsiBuy', 'presetGoldenCross', 'presetBollingerBuy', 'presetRsiSell']
+const PRESET_HELP = ['presetRsiBuy', 'presetGoldenCross', 'presetBollingerBuy', 'presetRsiSell', 'presetDeadCross']
 
 export default function StrategyPanel({ symbols, selected, beginner = false }) {
   const [tick, setTick] = useState(0)
   const { data: strategies } = usePolling(api.strategies, 5000, [tick])
   const refresh = () => setTick((t) => t + 1)
   const [msg, setMsg] = useState(null)
-  const [form, setForm] = useState({ name: '', symbol: selected, side: 'buy', quantity: 10, cooldown_sec: 60, account: 'paper', take_profit_pct: '', stop_loss_pct: '', conditions: [emptyCond()] })
+  const [form, setForm] = useState({ name: '', symbol: selected, side: 'buy', quantity: 10, cooldown_sec: 60, account: 'paper', take_profit_pct: '', stop_loss_pct: '', conditions: [signalCond()] })
   const set = (patch) => setForm((f) => ({ ...f, ...patch }))
 
   const applyPreset = (p) => set({ name: p.name, side: p.side, conditions: p.conditions.map((c) => ({ ...emptyCond(), ...c })), symbol: selected })

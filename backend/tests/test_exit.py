@@ -80,11 +80,22 @@ async def test_stop_loss_sells(sqlite_db, fake_redis):
 
 
 @pytest.mark.asyncio
-async def test_no_exit_between_thresholds_keeps_buying(sqlite_db, fake_redis):
+async def test_no_exit_between_thresholds_holds_without_rebuying(sqlite_db, fake_redis):
+    """익절·손절 사이에서는 들고만 있고, 매수 조건이 참이어도 더 사지 않는다"""
     _strategy()
     await on_tick(fake_redis, await _tick(fake_redis, 70000))
-    o = (await on_tick(fake_redis, await _tick(fake_redis, 71000)))[0]  # +1.43%
-    assert o["side"] == "buy" and _held() == 6
+    assert await on_tick(fake_redis, await _tick(fake_redis, 71000)) == []  # +1.43%
+    assert _held() == 3
+
+
+@pytest.mark.asyncio
+async def test_buys_again_after_exit(sqlite_db, fake_redis):
+    _strategy()
+    await on_tick(fake_redis, await _tick(fake_redis, 70000))
+    await on_tick(fake_redis, await _tick(fake_redis, 74000))  # 익절
+    assert _held() == 0
+    o = (await on_tick(fake_redis, await _tick(fake_redis, 74000)))[0]
+    assert o["side"] == "buy" and _held() == 3
 
 
 @pytest.mark.asyncio
@@ -98,6 +109,27 @@ async def test_exit_sells_only_what_strategy_bought(sqlite_db, fake_redis):
     o = (await on_tick(fake_redis, await _tick(fake_redis, 74000)))[0]
     assert o["side"] == "sell" and o["quantity"] == 3
     assert _held() == 10
+
+
+@pytest.mark.asyncio
+async def test_buys_again_after_manual_sell_all(sqlite_db, fake_redis):
+    """전략이 산 주식을 직접 모두 팔면 다시 매수할 수 있다"""
+    _strategy(take_profit=None, stop_loss=None)
+    await on_tick(fake_redis, await _tick(fake_redis, 70000))
+    with db.new_session() as s:
+        account.place_order(s, 1, "005930", "sell", 3, 70000)
+    o = (await on_tick(fake_redis, await _tick(fake_redis, 70000)))[0]
+    assert o["side"] == "buy" and _held() == 3
+
+
+@pytest.mark.asyncio
+async def test_manual_holdings_do_not_block_strategy_buy(sqlite_db, fake_redis):
+    """직접 산 주식은 전략의 보유로 치지 않는다"""
+    with db.new_session() as s:
+        account.place_order(s, 1, "005930", "buy", 10, 70000)
+    _strategy(take_profit=None, stop_loss=None)
+    o = (await on_tick(fake_redis, await _tick(fake_redis, 70000)))[0]
+    assert o["side"] == "buy" and _held() == 13
 
 
 @pytest.mark.asyncio
@@ -129,8 +161,8 @@ async def test_rejected_exit_is_not_retried_every_tick(sqlite_db, fake_redis, mo
 async def test_strategy_without_exit_does_not_sell(sqlite_db, fake_redis):
     _strategy(take_profit=None, stop_loss=None)
     await on_tick(fake_redis, await _tick(fake_redis, 70000))
-    o = (await on_tick(fake_redis, await _tick(fake_redis, 90000)))[0]
-    assert o["side"] == "buy"
+    assert await on_tick(fake_redis, await _tick(fake_redis, 90000)) == []  # 팔지도, 더 사지도 않음
+    assert _held() == 3
 
 
 def test_exit_reason_thresholds():
