@@ -11,8 +11,8 @@ from app.api.strategies import SessionDep
 from app.auth.deps import CurrentUser
 from app.edu import account, progress
 from app.edu.curriculum import UNITS
-from app.history.public_data import PublicDataError, PublicStockClient
 from app.history.kis_minutes import KisMinuteError
+from app.history.public_data import PublicDataError, PublicStockClient
 from app.stocks.service import QuoteUnavailable, StockNotFound, StockService
 
 router = APIRouter(prefix="/edu", tags=["education"])

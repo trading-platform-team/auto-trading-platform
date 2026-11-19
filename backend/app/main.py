@@ -10,8 +10,8 @@ from app import db
 from app.api import auth, edu, health, market, stocks, strategies, timemachine, trading, ws
 from app.auth import security, vault
 from app.core.config import settings
-from app.history.public_data import PublicStockClient
 from app.history.kis_minutes import KisMinuteClient
+from app.history.public_data import PublicStockClient
 from app.kiwoom import platform
 from app.kiwoom.watch import publish_strategy_symbols_forever
 from app.market.consumer import consume_forever
