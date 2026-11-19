@@ -4,6 +4,8 @@
 조건을 만족하면 모의 주문을 실행한 뒤 알림을 Redis에 남긴다.
 모의 매수 전략에 익절·손절(%)이 있으면, 이 전략이 산 주식이 평균 단가 대비
 그만큼 오르거나 내렸을 때 먼저 매도한다 (그 시세에서는 매수 조건을 보지 않음).
+모의 매수 전략은 자기가 산 주식이 남아 있는 동안 다시 사지 않는다 (백테스트와 같은
+한 번에 한 포지션). 조건이 계속 참이어도 쿨다운마다 물타기 매수가 쌓이지 않게 하기 위함.
 
 Redis 사용
 - ticks:<종목>      최근 시세 → 지표 계산 입력
@@ -72,6 +74,20 @@ def uses_exit(st: Strategy) -> bool:
     )
 
 
+def holds_one_position(st: Strategy) -> bool:
+    """보유 중이면 다시 사지 않는 전략인지 (모의 매수 전략)"""
+    return isinstance(broker, PaperBroker) and st.account != "kiwoom" and st.side == "buy"
+
+
+def _held(strategy_id: int) -> int:
+    """이 전략이 사서 아직 남아 있는 수량"""
+    with db.new_session() as s:
+        strategy = s.get(Strategy, strategy_id)
+        if strategy is None or strategy.user_id is None:
+            return 0
+        return broker.held_by_strategy(s, strategy)
+
+
 def _check_exit(strategy_id: int, price: float) -> tuple[int, dict] | None:
     """익절·손절할 때면 (매도 수량, 사유), 아니면 None"""
     with db.new_session() as s:
@@ -135,6 +151,9 @@ async def on_tick(r, tick: dict) -> list[dict]:
                 await _alert(r, order, order_message(st.name, tick["name"], order))
                 executed.append(order)
                 continue  # 매도한 시세에서는 다시 사지 않음
+
+        if holds_one_position(st) and await asyncio.to_thread(_held, st.id) > 0:
+            continue  # 이미 산 주식이 남아 있음 (익절·손절·매도 전략·직접 매도로 정리된 뒤에 다시 매수)
 
         ok, details = evaluate(st.conditions, closes)
         if not ok:

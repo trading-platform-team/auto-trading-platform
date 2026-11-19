@@ -43,6 +43,19 @@ describe('toStrategyPayload', () => {
   })
 })
 
+describe('PRESETS', () => {
+  it('매수·매도 신호는 모두 돌파 조건이다 (구간 조건이면 머무는 동안 주문이 반복됨)', () => {
+    for (const p of PRESETS) {
+      for (const c of p.conditions) expect(['cross_up', 'cross_down']).toContain(c.op)
+    }
+  })
+
+  it('매수·매도 프리셋이 짝을 이룬다', () => {
+    expect(PRESETS.filter((p) => p.side === 'buy').length).toBeGreaterThan(0)
+    expect(PRESETS.map((p) => p.name)).toContain('데드크로스 매도')
+  })
+})
+
 describe('익절·손절', () => {
   const base = { name: 'x', symbol: '005930', side: 'buy', quantity: 1, cooldown_sec: 0, ...PRESETS[0] }
 

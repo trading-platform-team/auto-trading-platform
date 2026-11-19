@@ -3,6 +3,8 @@ import { INDICATORS, OPERATORS } from '../format.js'
 // 보조지표 조건 편집기 (실시간 전략 등록·백테스트 공용)
 
 export const emptyCond = () => ({ left: { name: 'RSI', period: 14 }, op: '<', rightType: 'number', rightValue: 30, right: { name: 'SMA', period: 20 } })
+// 실시간 전략의 첫 조건(주문 신호) 기본값: 구간(<)이 아니라 돌파. 구간이면 머무는 동안 쿨다운마다 주문이 반복된다
+export const signalCond = () => ({ ...emptyCond(), op: 'cross_up' })
 
 const BEGINNER_LABEL = {
   PRICE: '지금 가격 (현재가)', SMA: '가격 평균선 (SMA)', EMA: '빠른 평균선 (EMA)', RSI: '과열 정도 (RSI)',
