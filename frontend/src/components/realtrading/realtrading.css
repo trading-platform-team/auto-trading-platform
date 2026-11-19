@@ -66,3 +66,10 @@
 .rt-status.st-wait { color: var(--warn); }
 .rt-status.st-bad { color: var(--up); }
 .rt-status.st-off { color: var(--muted); }
+
+/* 등록된 키움 키 (실전 계좌는 눈에 띄게) */
+.key-badge { margin-left: auto; padding: 3px 10px; border-radius: var(--radius-pill); font-size: 12px; font-weight: 700; white-space: nowrap; }
+.key-badge.real { color: #fff; background: var(--up); }
+.key-badge.mock { color: var(--accent-text); background: var(--accent-soft); }
+.key-badge.none { color: var(--muted); background: rgba(255, 255, 255, 0.05); }
+.key-warn { margin: -6px 0 0; }

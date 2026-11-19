@@ -1,16 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { api, auth } from './api.js'
-import AlertFeed from './components/AlertFeed.jsx'
-import AnomalyPanel from './components/AnomalyPanel.jsx'
 import EducationPage from './components/education/EducationPage.jsx'
 import Header from './components/Header.jsx'
 import LoginScreen from './components/LoginScreen.jsx'
-import OrderTable from './components/OrderTable.jsx'
 import PaperTradingPage from './components/PaperTradingPage.jsx'
-import PriceChart from './components/PriceChart.jsx'
-import PriceTable from './components/PriceTable.jsx'
-import LiveTradingPage from './components/realtrading/LiveTradingPage.jsx'
-import StrategyPanel from './components/StrategyPanel.jsx'
+import RealTradingPage from './components/realtrading/RealTradingPage.jsx'
 import TimeMachinePage from './components/timemachine/TimeMachinePage.jsx'
 import { speechText } from './format.js'
 import { useAlertSocket, usePolling } from './hooks.js'
@@ -39,7 +33,6 @@ export default function App() {
 
 function Dashboard({ username }) {
   const [page, setPage] = useState('education')
-  const [selected, setSelected] = useState('005930')
   const [voice, setVoice] = useState(false)
   const [alerts, setAlerts] = useState([])
   const { data: prices } = usePolling(api.prices, 5000)
@@ -61,11 +54,6 @@ function Dashboard({ username }) {
 
   const symbols = prices ?? []
   const anomalies = anomaliesData ?? []
-  const recentAnomalySymbols = useMemo(() => {
-    const cutoff = Date.now() - 60_000
-    return new Set(anomalies.filter((a) => new Date(a.timestamp).getTime() > cutoff).map((a) => a.symbol))
-  }, [anomalies])
-  const selectedName = symbols.find((s) => s.symbol === selected)?.name
 
   return (
     <div className="app">
@@ -81,22 +69,7 @@ function Dashboard({ username }) {
           <TimeMachinePage />
         </main>
       ) : (
-      <LiveTradingPage>
-      <main className="grid">
-        <div className="col-left">
-          <PriceTable selected={selected} onSelect={setSelected} anomalySymbols={recentAnomalySymbols} />
-          <AlertFeed alerts={alerts} />
-        </div>
-        <div className="col-center">
-          <PriceChart symbol={selected} name={selectedName} />
-          <OrderTable />
-        </div>
-        <div className="col-right">
-          <StrategyPanel symbols={symbols} selected={selected} />
-          <AnomalyPanel anomalies={anomalies} onSelect={setSelected} />
-        </div>
-      </main>
-      </LiveTradingPage>
+        <RealTradingPage symbols={symbols} alerts={alerts} anomalies={anomalies} />
       )}
     </div>
   )

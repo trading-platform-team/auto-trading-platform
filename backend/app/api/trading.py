@@ -50,8 +50,21 @@ class OrderIn(BaseModel):
     price: int | None = Field(default=None, ge=1)  # 없으면 시장가
 
 
+def _keys(user_id: int) -> dict:
+    """서버별 등록된 키가 있는지 (실전=주계좌 / 모의투자 계좌). 키 원문은 내보내지 않는다"""
+    out = {}
+    for env in ("mock", "real"):
+        try:
+            creds = credentials.get_credentials(user_id, env)
+        except ValueError:  # 키의 서버가 요청과 다름
+            creds = None
+        out[env] = {"registered": creds is not None, "key_id": creds.key_id[:6] if creds else None}
+    return out
+
+
 def _settings_out(st: KiwoomSetting) -> dict:
     return {
+        "keys": _keys(st.user_id),
         "env": st.env, "enabled": st.enabled, "max_order_amount": st.max_order_amount,
         "daily_loss_limit": st.daily_loss_limit, "disabled_reason": st.disabled_reason,
         "activated_at": st.activated_at.isoformat() if st.activated_at else None,

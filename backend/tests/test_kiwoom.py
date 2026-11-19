@@ -249,6 +249,9 @@ def activate(client, env="mock", max_amount=1_000_000, loss=100_000):
 def test_settings_default_disabled(client):
     st = client.get("/trading/kiwoom/settings").json()
     assert st["enabled"] is False and st["env"] == "mock" and st["confirm_text"] == "모의투자를 시작합니다"
+    # 어느 서버의 키가 등록됐는지 (모의투자 계좌 키만 있음). 키 원문은 내보내지 않는다
+    assert st["keys"]["mock"]["registered"] is True and st["keys"]["real"] == {"registered": False, "key_id": None}
+    assert "mock-app" not in str(st)
 
 
 def test_activate_requires_confirm_text(client):

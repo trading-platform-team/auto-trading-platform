@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { checkOrder, errText, isOpen, lossRatio, orderAmount, statusInfo, toOrderBody } from './logic.js'
+import { checkOrder, errText, isOpen, keyStatus, lossRatio, orderAmount, statusInfo, toOrderBody } from './logic.js'
 
 const on = { enabled: true, max_order_amount: 1_000_000 }
 
@@ -47,5 +47,16 @@ describe('표시', () => {
     expect(errText(new Error('"등록된 키움 키가 없습니다"'))).toBe('등록된 키움 키가 없습니다')
     expect(errText(new Error('[{"msg":"too small"}]'))).toBe('too small')
     expect(errText(new Error('500 Internal'))).toBe('500 Internal')
+  })
+})
+
+describe('등록된 키 표시', () => {
+  it('서버별 키를 실전/모의 계좌로 보여 준다', () => {
+    const s = { env: 'mock', keys: { mock: { registered: true }, real: { registered: false } } }
+    expect(keyStatus(s)).toEqual({ text: '등록된 키: 모의투자 계좌', real: false, missing: null })
+    const r = keyStatus({ ...s, env: 'real' })
+    expect(r.missing).toContain('실전 계좌')
+    expect(keyStatus({ env: 'mock', keys: { mock: { registered: false }, real: { registered: false } } }).text).toBe('등록된 키움 키가 없어요')
+    expect(keyStatus(null)).toBe(null)
   })
 })
