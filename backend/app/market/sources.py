@@ -17,6 +17,9 @@ DEFAULT_SYMBOLS = {
     "035720": ("카카오", 40000),
 }
 
+# 기본 종목이 아닌 종목의 가상 일봉 시작 가격 (타임머신에서 실제 일봉을 못 받았을 때)
+MOCK_START_PRICE = 50000
+
 
 def make_tick(symbol: str, name: str, price: float, volume: int, bid_size: int, ask_size: int) -> dict:
     return {
