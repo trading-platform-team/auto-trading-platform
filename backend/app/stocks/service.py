@@ -22,7 +22,7 @@ from app.market.sources import DEFAULT_SYMBOLS
 log = logging.getLogger("uvicorn.error")
 
 MASTER_KEY = "stocks:master"
-PUBLIC_MASTER_KEY = "stocks:master:public"
+PUBLIC_MASTER_KEY = "stocks:master:public:v2"  # v2: 종목마다 최근 종가(quote) 포함
 MASTER_TTL = 12 * 3600
 QUOTE_KEY = "stocks:quote:{code}"
 QUOTE_TTL = 5
@@ -298,14 +298,25 @@ class StockService:
             for c in lacking:
                 if c in mock:
                     t = mock[c]
+                    change = change_pct = None
+                    day = (master.get(c) or {}).get("quote")
+                    if day and day.get("change") is not None and t.get("source") != "mock":
+                        prev = day["price"] - day["change"]  # 전일 종가 기준 등락 (재생 가격)
+                        if prev > 0:
+                            change = t["price"] - prev
+                            change_pct = round(change / prev * 100, 2)
                     out[c] = {
                         "symbol": c,
                         "price": t["price"],
-                        "change": None,
-                        "change_pct": None,
+                        "change": change,
+                        "change_pct": change_pct,
                         "volume": t.get("volume"),
                         "source": t.get("source", "mock"),
                     }
+        # 공공데이터 종목 목록에 같이 받아 둔 최근 종가 (추가 호출 없음)
+        for c in codes:
+            if c not in out and (master.get(c) or {}).get("quote"):
+                out[c] = {"symbol": c, **master[c]["quote"]}
         for c, q in out.items():
             meta = master.get(c, {})
             q.update(
