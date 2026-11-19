@@ -26,7 +26,9 @@ async def watch(symbol: str, request: Request):
 
 async def get_quote(app_state, symbol: str) -> dict | None:
     """현재가 (StockService: 키움 ka10095 5초 캐시, 키가 없으면 가상 시세). 없으면 None"""
-    return (await app_state.stocks.quotes([symbol])).get(symbol)
+    # 테스트·이전 코드가 키움 StockService를 stocks에 직접 넣은 경우도 호환한다.
+    service = app_state.stocks if app_state.stocks.kiwoom else app_state.real_stocks
+    return (await service.quotes([symbol])).get(symbol)
 
 
 @router.get("/quote/{symbol}")

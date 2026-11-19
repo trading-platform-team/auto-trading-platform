@@ -40,9 +40,10 @@ async def lifespan(app: FastAPI):
         secret, source = await asyncio.to_thread(vault.load_jwt_secret)
         security.set_secret(secret)
         log.info("JWT 서명 키 출처: %s", source)
-    kiwoom = platform.open_team_client()  # 가상계좌 연습·실거래 화면·개발용 주문이 같이 쓰는 팀 키 클라이언트
-    app.state.stocks = StockService(app.state.redis, kiwoom)
     app.state.public_stocks = PublicStockClient(settings.public_data_service_key, settings.public_data_stock_url)
+    kiwoom = platform.open_team_client()  # 키움은 실거래 화면에서만 사용
+    app.state.stocks = StockService(app.state.redis, public=app.state.public_stocks)
+    app.state.real_stocks = StockService(app.state.redis, kiwoom)
     app.state.kis_minutes = KisMinuteClient(
         settings.kis_app_key,
         settings.kis_app_secret,
@@ -51,6 +52,7 @@ async def lifespan(app: FastAPI):
         redis=app.state.redis,
     )
     app.state.stocks.warm()  # 종목 목록을 미리 받기 시작
+    app.state.real_stocks.warm()
     log.info("가상계좌 연습 시세: %s", "키움 REST API" if kiwoom.enabled else "가상 시세 (키움 키 없음)")
     tasks = [asyncio.create_task(consume_forever(app.state.redis))] if settings.enable_consumer else []
     if settings.kiwoom_execution_ws:  # 실거래 체결 즉시 반영·알림
