@@ -484,3 +484,17 @@ input:focus, select:focus { outline: none; border-color: var(--accent); }
 .login-card .btn-primary { padding: 10px; margin-top: 4px; }
 .user-chip { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; padding: 4px 4px 4px 10px; border: 1px solid var(--line); border-radius: var(--radius-pill); }
 .user-chip .icon-btn { font-size: 12px; }
+.symbol-search { position: relative; }
+.symbol-results {
+  position: absolute; z-index: 20; top: calc(100% + 4px); left: 0; right: 0; min-width: 200px;
+  list-style: none; margin: 0; padding: 4px; max-height: 260px; overflow-y: auto;
+  background: var(--card); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
+}
+.symbol-results li.empty, .symbol-results li.msg-err { padding: 8px 10px; }
+.symbol-results button {
+  width: 100%; display: flex; align-items: center; gap: 8px; padding: 7px 10px; text-align: left;
+  background: none; border: none; border-radius: 6px; color: var(--text); cursor: pointer; font: inherit; font-size: 13px;
+}
+.symbol-results button:hover, .symbol-results button.on { background: var(--card-2); }
+.symbol-results button span:first-child { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.symbol-results .tag.warn { color: var(--warn); }

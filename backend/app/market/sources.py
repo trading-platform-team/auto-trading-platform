@@ -1,6 +1,7 @@
 """시세 데이터 소스
 
-- MockSource: 키움 API 키 없이 개발·시연할 수 있는 가상 시세 (랜덤워크 + 가끔 급등락)
+- MockSource: 키움 API 키 없이 개발·시연할 수 있는 가상 시세 (랜덤워크 + 가끔 급등락).
+  기본 종목에 더해 켜진 전략의 종목도 만든다
 - KiwoomSource: 키움 실시간 시세 (플랫폼 키, 보고 있는 종목·전략 종목만 동적 구독)
 """
 
@@ -14,6 +15,7 @@ DEFAULT_SYMBOLS = {
     "005380": ("현대차", 240000),
     "035720": ("카카오", 40000),
 }
+MOCK_START_PRICE = 10000  # 현재가를 모르는 종목의 가상 시세 시작가
 
 
 def make_tick(symbol: str, name: str, price: float, volume: int, bid_size: int, ask_size: int) -> dict:
@@ -31,11 +33,42 @@ def make_tick(symbol: str, name: str, price: float, volume: int, bid_size: int, 
 class MockSource:
     """가상 시세 생성기. anomaly_rate 확률로 거래량 급증·가격 급변·호가 쏠림·복합 이상을 섞는다."""
 
-    def __init__(self, symbols: dict | None = None, anomaly_rate: float = 0.02, seed: int | None = None):
-        self.symbols = symbols or DEFAULT_SYMBOLS
+    def __init__(self, symbols: dict | None = None, anomaly_rate: float = 0.02, seed: int | None = None,
+                 redis=None, stocks=None):
+        self.base = dict(symbols or DEFAULT_SYMBOLS)  # 항상 만드는 종목
+        self.symbols = dict(self.base)
         self.prices = {s: float(p) for s, (_, p) in self.symbols.items()}
         self.anomaly_rate = anomaly_rate
         self.rng = random.Random(seed)
+        self.redis = redis  # 켜진 전략 종목 (market:strategy_symbols)을 읽는다
+        self.stocks = stocks  # 새 종목의 이름·시작가 (StockService)
+
+    async def sync(self) -> None:
+        """켜진 전략 종목을 시세 생성 대상에 맞춘다 (기본 종목이 아닌 종목으로 만든 전략도 돌도록)
+
+        새 종목은 현재가(키움 키가 있으면 실제 가격)에서 시작하고, 꺼진 전략 종목은 뺀다.
+        """
+        if self.redis is None:
+            return
+        from app.kiwoom.watch import STRATEGY_KEY
+
+        wanted = set(await self.redis.smembers(STRATEGY_KEY))
+        for sym in [s for s in self.symbols if s not in self.base and s not in wanted]:
+            del self.symbols[sym], self.prices[sym]
+        new = sorted(s for s in wanted if s not in self.symbols)
+        if not new:
+            return
+        quotes = {}
+        if self.stocks is not None:
+            try:
+                quotes = await self.stocks.quotes(new)
+            except Exception:  # noqa: BLE001 - 현재가를 못 받아도 시작가로 만든다
+                quotes = {}
+        for sym in new:
+            q = quotes.get(sym) or {}
+            price = q.get("price") or MOCK_START_PRICE
+            self.symbols[sym] = (q.get("name") or sym, price)
+            self.prices[sym] = float(price)
 
     def next_ticks(self) -> list[dict]:
         ticks = []
@@ -150,7 +183,13 @@ class KiwoomSource:
 
 def create_source(name: str, redis=None):
     if name == "mock":
-        return MockSource()
+        if redis is None:
+            return MockSource()
+        from app.kiwoom import platform
+        from app.stocks.service import StockService
+
+        client = platform.team_client() or platform.open_team_client()
+        return MockSource(redis=redis, stocks=StockService(redis, client))
     if name == "kiwoom":
         return KiwoomSource(redis)
     raise ValueError(f"알 수 없는 시세 소스: {name}")

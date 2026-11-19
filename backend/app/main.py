@@ -47,8 +47,8 @@ async def lifespan(app: FastAPI):
     tasks = [asyncio.create_task(consume_forever(app.state.redis))] if settings.enable_consumer else []
     if settings.kiwoom_execution_ws:  # 실거래 체결 즉시 반영·알림
         tasks.append(asyncio.create_task(ExecutionWatcher(app.state.redis).run_forever()))
-    if settings.market_source == "kiwoom":
-        tasks.append(asyncio.create_task(publish_strategy_symbols_forever(app.state.redis)))  # 실시간 구독할 전략 종목
+    if settings.enable_engine:  # 켜진 전략 종목 → 키움 실시간 구독 대상·가상 시세 생성 대상
+        tasks.append(asyncio.create_task(publish_strategy_symbols_forever(app.state.redis)))
     yield
     for task in tasks:
         task.cancel()

@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { api } from '../api.js'
 import { canUseExit, conditionLabel, exitLabel, PRESETS, toStrategyPayload } from '../format.js'
 import { ConditionList, emptyCond } from './ConditionEditor.jsx'
 import { usePolling } from '../hooks.js'
+import SymbolSearch from './SymbolSearch.jsx'
 
 const PRESET_HELP = ['presetRsiBuy', 'presetGoldenCross', 'presetBollingerBuy', 'presetRsiSell']
 
@@ -13,6 +14,20 @@ export default function StrategyPanel({ symbols, selected, beginner = false }) {
   const [msg, setMsg] = useState(null)
   const [form, setForm] = useState({ name: '', symbol: selected, side: 'buy', quantity: 10, cooldown_sec: 60, account: 'paper', take_profit_pct: '', stop_loss_pct: '', conditions: [emptyCond()] })
   const set = (patch) => setForm((f) => ({ ...f, ...patch }))
+  // 종목명: 시세가 들어오는 종목은 시세 목록에서, 그 밖의 종목은 검색에서 고를 때·/stocks/{code}로 채운다
+  const [names, setNames] = useState({})
+  const nameOf = (code) => names[code] ?? symbols.find((s) => s.symbol === code)?.name ?? code
+  const streaming = (code) => symbols.some((s) => s.symbol === code)
+
+  useEffect(() => {
+    const unknown = [...new Set((strategies ?? []).map((s) => s.symbol))].filter(
+      (code) => !(code in names) && !symbols.some((s) => s.symbol === code),
+    )
+    unknown.forEach((code) => {
+      setNames((n) => ({ ...n, [code]: code })) // 같은 종목을 두 번 조회하지 않게
+      api.stock(code).then((r) => setNames((n) => ({ ...n, [code]: r.name }))).catch(() => {})
+    })
+  }, [strategies, symbols, names])
 
   const applyPreset = (p) => set({ name: p.name, side: p.side, conditions: p.conditions.map((c) => ({ ...emptyCond(), ...c })), symbol: selected })
 
@@ -20,9 +35,11 @@ export default function StrategyPanel({ symbols, selected, beginner = false }) {
     e.preventDefault()
     try {
       await api.createStrategy(toStrategyPayload({ ...form, name: form.name || '내 전략' }))
-      setMsg({ ok: true, text: form.account === 'kiwoom'
+      const base = form.account === 'kiwoom'
         ? '전략이 등록됐어요. 조건을 만족하면 실거래 설정(서버·한도)으로 키움에 주문합니다.'
-        : '전략이 등록됐어요. 조건을 만족하면 자동으로 모의 주문이 실행됩니다.' })
+        : '전략이 등록됐어요. 조건을 만족하면 자동으로 모의 주문이 실행됩니다.'
+      const warmup = streaming(form.symbol) ? '' : ' 이 종목은 지금부터 시세를 받기 시작해서, 지표를 계산할 만큼 쌓일 때까지(시세 20개쯤) 주문하지 않아요.'
+      setMsg({ ok: true, text: base + warmup })
       refresh()
     } catch (err) {
       setMsg({ ok: false, text: `등록 실패: ${err.message}` })
@@ -38,7 +55,6 @@ export default function StrategyPanel({ symbols, selected, beginner = false }) {
     await api.deleteStrategy(id)
     refresh()
   }
-  const nameOf = (code) => symbols.find((s) => s.symbol === code)?.name ?? code
 
   return (
     <section className="card" data-explain={beginner ? 'strategy' : undefined}>
@@ -57,9 +73,11 @@ export default function StrategyPanel({ symbols, selected, beginner = false }) {
         <div className="form-grid">
           <label className="wide" data-explain={beginner ? 'strategyName' : undefined}>이름<input value={form.name} placeholder="내 전략" onChange={(e) => set({ name: e.target.value })} /></label>
           <label data-explain={beginner ? 'symbol' : undefined}>종목
-            <select value={form.symbol} onChange={(e) => set({ symbol: e.target.value })}>
-              {symbols.map((s) => <option key={s.symbol} value={s.symbol}>{s.name}</option>)}
-            </select>
+            <SymbolSearch
+              value={form.symbol}
+              name={nameOf(form.symbol)}
+              onChange={(symbol, name) => (setNames((n) => ({ ...n, [symbol]: name })), set({ symbol }))}
+            />
           </label>
           <label data-explain={beginner ? 'tradeSide' : undefined}>매매
             <select value={form.side} onChange={(e) => set({ side: e.target.value })}>
