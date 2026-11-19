@@ -1,17 +1,33 @@
 import { useEffect, useState } from 'react'
-import { Area, AreaChart, Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { api } from '../../../api.js'
 import { fmtNum, fmtPct, pctClass } from '../../../format.js'
 import { RANGES, periodChange } from './trade.js'
+import TvChart from './TvChart.jsx'
 
-const tip = { background: '#151a22', border: '1px solid #2a313d' }
-const short = (d) => d?.slice(5) // 2026-11-17 → 11-17
+const CHART_KEY = 'chartKind' // 선/캔들 선택을 이 브라우저에 기억
+
+function loadKind() {
+  try {
+    return localStorage.getItem(CHART_KEY) === 'candle' ? 'candle' : 'line'
+  } catch {
+    return 'line'
+  }
+}
 
 // 선택한 종목: 현재가, 일봉 차트 (주문은 TradeBox)
 export default function StockDetail({ symbol, info, watched, onToggleWatch, source }) {
   const [bars, setBars] = useState(null)
   const [barsError, setBarsError] = useState(null)
   const [range, setRange] = useState('3M')
+  const [kind, setKind] = useState(loadKind)
+  const pickKind = (k) => {
+    setKind(k)
+    try {
+      localStorage.setItem(CHART_KEY, k)
+    } catch {
+      /* 저장 못 해도 이번 화면에서는 바뀐다 */
+    }
+  }
 
   // 일봉: 실패하면 이유를 보여 주고 15초 뒤 다시 시도. 시세 출처가 바뀌면 다시 받기
   useEffect(() => {
@@ -21,7 +37,7 @@ export default function StockDetail({ symbol, info, watched, onToggleWatch, sour
     setBarsError(null)
     const load = () =>
       api
-        .stockDaily(symbol, 130)
+        .stockDaily(symbol, 250)
         .then((d) => alive && (setBars(d), setBarsError(null)))
         .catch((e) => {
           if (!alive) return
@@ -39,7 +55,6 @@ export default function StockDetail({ symbol, info, watched, onToggleWatch, sour
   const price = info?.price ?? 0
   const shown = bars?.slice(-RANGES.find((r) => r.key === range).days) ?? []
   const pc = periodChange(shown)
-  const up = (pc ?? 0) >= 0
 
   if (!info) return <section className="card stock-detail"><p className="empty">종목 정보 불러오는 중...</p></section>
 
@@ -81,10 +96,16 @@ export default function StockDetail({ symbol, info, watched, onToggleWatch, sour
         <span className="muted small">
           일봉 차트{pc != null && <> · 기간 수익률 <b className={pctClass(pc)}>{fmtPct(pc)}</b></>}
         </span>
+        <div className="chart-tools">
+        <div className="seg small-seg" role="group" aria-label="차트 종류">
+          <button className={kind === 'line' ? 'on' : ''} onClick={() => pickKind('line')}>선</button>
+          <button className={kind === 'candle' ? 'on' : ''} onClick={() => pickKind('candle')}>캔들</button>
+        </div>
         <div className="seg small-seg">
           {RANGES.map((r) => (
             <button key={r.key} className={range === r.key ? 'on' : ''} onClick={() => setRange(r.key)}>{r.label}</button>
           ))}
+        </div>
         </div>
       </div>
       {bars == null ? (
@@ -95,29 +116,7 @@ export default function StockDetail({ symbol, info, watched, onToggleWatch, sour
         </p>
       ) : (
         <>
-          <ResponsiveContainer width="100%" height={200}>
-            <AreaChart data={shown} margin={{ top: 6, right: 8, left: 0, bottom: 0 }}>
-              <defs>
-                <linearGradient id="pfill" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={up ? '#f2555a' : '#4c8ff5'} stopOpacity={0.35} />
-                  <stop offset="100%" stopColor={up ? '#f2555a' : '#4c8ff5'} stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid stroke="#252b36" vertical={false} />
-              <XAxis dataKey="date" tickFormatter={short} stroke="#6b7685" fontSize={11} minTickGap={30} />
-              <YAxis domain={['auto', 'auto']} stroke="#6b7685" fontSize={11} tickFormatter={fmtNum} width={64} />
-              <Tooltip contentStyle={tip} formatter={(v) => [`${fmtNum(v)}원`, '종가']} labelFormatter={(d) => d} />
-              <Area dataKey="close" stroke={up ? '#f2555a' : '#4c8ff5'} strokeWidth={2} fill="url(#pfill)" isAnimationActive={false} />
-            </AreaChart>
-          </ResponsiveContainer>
-          <ResponsiveContainer width="100%" height={50}>
-            <BarChart data={shown} margin={{ top: 0, right: 8, left: 0, bottom: 0 }}>
-              <XAxis dataKey="date" hide />
-              <YAxis hide />
-              <Tooltip contentStyle={tip} formatter={(v) => [fmtNum(v), '거래량']} />
-              <Bar dataKey="volume" fill="#3a4250" isAnimationActive={false} />
-            </BarChart>
-          </ResponsiveContainer>
+          <TvChart bars={bars} kind={kind} days={RANGES.find((r) => r.key === range).days} />
         </>
       )}
 

@@ -343,3 +343,9 @@ fieldset.plain { border: none; padding: 0; margin: 0; min-width: 0; }
 .practice-folds { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: start; }
 @media (max-width: 1000px) { .practice-folds { grid-template-columns: 1fr; } }
 .practice-folds .beginner-fold-body .scroll { max-height: 320px; }
+
+/* 차트 종류(선·캔들)와 기간 버튼 */
+.chart-tools { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.tv-chart { position: relative; }
+.tv-legend { position: absolute; top: 4px; left: 6px; z-index: 2; display: flex; gap: 8px; flex-wrap: wrap; font-size: 12px; pointer-events: none; }
+.tv-help { margin: 4px 0 0; font-size: 11px; }
