@@ -16,13 +16,14 @@ class KisMinuteError(RuntimeError):
 
 class KisMinuteClient:
     def __init__(self, app_key: str, app_secret: str, base_url: str, interval: float = 5.0,
-                 transport: httpx.AsyncBaseTransport | None = None):
+                 transport: httpx.AsyncBaseTransport | None = None, redis=None):
         self.app_key = app_key.strip()
         self.app_secret = app_secret.strip()
         self.interval = max(1.0, interval)
         self.client = httpx.AsyncClient(base_url=base_url.rstrip("/"), timeout=20, transport=transport)
         self._token: tuple[float, str] | None = None
         self._cache: dict[str, tuple[float, list[dict]]] = {}
+        self.redis = redis
 
     @property
     def enabled(self) -> bool:
@@ -34,6 +35,11 @@ class KisMinuteClient:
     async def _access_token(self) -> str:
         if self._token and self._token[0] > time.monotonic():
             return self._token[1]
+        if self.redis is not None:
+            shared = await self.redis.get("kis:access_token")
+            if shared:
+                self._token = (time.monotonic() + 60, shared)
+                return shared
         try:
             response = await self.client.post("/oauth2/tokenP", json={
                 "grant_type": "client_credentials", "appkey": self.app_key, "appsecret": self.app_secret,
@@ -45,6 +51,8 @@ class KisMinuteClient:
         except (httpx.HTTPError, ValueError, KeyError) as exc:
             raise KisMinuteError(f"한국투자 인증 실패: {exc}") from exc
         self._token = (time.monotonic() + ttl, token)
+        if self.redis is not None:
+            await self.redis.set("kis:access_token", token, ex=ttl)
         return token
 
     async def _request_day(self, symbol: str, day: date) -> list[dict]:
