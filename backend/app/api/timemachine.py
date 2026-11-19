@@ -17,8 +17,9 @@ from app.db import get_session
 from app.history.events import load_events, merge_events
 from app.history.external_events import fetch_disclosure_preview, load_external_events
 from app.history.public_data import PublicDataError
-from app.history.service import SEED_START, load_bars, symbols_summary, sync_public_bars
-from app.market.sources import DEFAULT_SYMBOLS
+from app.history.service import SEED_START, load_bars, seed_symbol, symbols_summary, sync_public_bars
+from app.market.sources import DEFAULT_SYMBOLS, MOCK_START_PRICE
+from app.stocks.service import StockNotFound
 from app.strategy.indicators import chart_series, clean
 from app.strategy.schemas import Condition
 from app.timemachine import session as tm
@@ -35,23 +36,42 @@ def _bars_or_404(s: Session, symbol: str) -> list[dict]:
     return bars
 
 
-def _name(symbol: str) -> str:
-    return DEFAULT_SYMBOLS.get(symbol, (symbol,))[0]
+async def _stock(request: Request, symbol: str) -> dict | None:
+    """전 종목 목록에서 종목 정보를 찾는다 (자동매매·실거래 종목 검색과 같은 목록). 없으면 None"""
+    try:
+        return await request.app.state.stocks.info(symbol)
+    except StockNotFound:
+        return None
+
+
+async def _name(request: Request, symbol: str) -> str:
+    if symbol in DEFAULT_SYMBOLS:
+        return DEFAULT_SYMBOLS[symbol][0]
+    row = await _stock(request, symbol)
+    return row["name"] if row else symbol
 
 
 async def _refresh_history(request: Request, s: Session, symbol: str, start: date, end: date) -> None:
-    """공공데이터 키가 있으면 실제 일봉으로 갱신하고, 실패하면 저장된 교육용 데이터로 계속한다."""
+    """공공데이터 키가 있으면 실제 일봉으로 갱신하고, 실패하면 저장된 교육용 데이터로 계속한다.
+
+    기본 종목이 아닌 상장 종목인데 실제 일봉을 못 받았으면 가상 일봉을 채워서 그 종목으로도 연습할 수 있게 한다.
+    """
     try:
         await sync_public_bars(s, request.app.state.public_stocks, symbol, start, end)
     except (PublicDataError, OSError, ValueError):
         s.rollback()
+    if symbol not in DEFAULT_SYMBOLS and not load_bars(s, symbol) and await _stock(request, symbol):
+        seed_symbol(s, symbol, MOCK_START_PRICE)
 
 
 # ---------- 과거 시세 (#9) ----------
 @router.get("/history/symbols")
-def history_symbols(s: SessionDep):
-    """과거 시세가 있는 종목과 기간"""
-    return symbols_summary(s)
+async def history_symbols(request: Request, s: SessionDep):
+    """과거 시세가 있는 종목과 기간 (한 번이라도 불러온 종목 포함)"""
+    rows = symbols_summary(s)
+    for r in rows:
+        r["name"] = await _name(request, r["symbol"])
+    return rows
 
 
 async def _events(symbol: str, start: date | None = None, end: date | None = None) -> list[dict]:
@@ -142,7 +162,7 @@ async def backtest(body: BacktestIn, request: Request, s: SessionDep):
         for i, b in enumerate(bars)
         if i >= start_index
     ]
-    result.update(symbol=body.symbol, name=_name(body.symbol), source=bars[-1]["source"])
+    result.update(symbol=body.symbol, name=await _name(request, body.symbol), source=bars[-1]["source"])
     return result
 
 
@@ -206,7 +226,8 @@ async def create_session(body: SessionIn, request: Request, s: SessionDep, user:
     await _refresh_history(request, s, body.symbol, SEED_START, date.today())
     bars = _bars_or_404(s, body.symbol)
     try:
-        st = tm.create(bars, body.symbol, _name(body.symbol), body.start_date.isoformat(), body.initial_cash)
+        name = await _name(request, body.symbol)
+        st = tm.create(bars, body.symbol, name, body.start_date.isoformat(), body.initial_cash)
     except tm.SessionError as e:
         raise HTTPException(422, str(e)) from e
     st["user_id"] = user["id"]

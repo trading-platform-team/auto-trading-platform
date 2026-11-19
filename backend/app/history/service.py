@@ -24,6 +24,16 @@ def ensure_seeded(s: Session) -> int:
     return len(rows)
 
 
+def seed_symbol(s: Session, symbol: str, base_price: float) -> int:
+    """기본 종목이 아닌 종목에 가상 일봉을 채운다 (공공데이터 일봉을 못 받았을 때). 이미 있으면 그대로 둔다."""
+    if s.scalar(select(func.count()).select_from(PriceBar).where(PriceBar.symbol == symbol)):
+        return 0
+    rows = generate_daily(symbol, base_price, SEED_START, SEED_END)
+    s.bulk_insert_mappings(PriceBar, [{**r, "source": "synthetic"} for r in rows])
+    s.commit()
+    return len(rows)
+
+
 def load_bars(s: Session, symbol: str, start: date | None = None, end: date | None = None) -> list[dict]:
     q = select(PriceBar).where(PriceBar.symbol == symbol)
     if start:

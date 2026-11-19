@@ -4,6 +4,7 @@ import { fmtNum, fmtPct, fmtWon, pctClass, toApiConditions, toFormCondition } fr
 import { ConditionList, emptyCond } from '../ConditionEditor.jsx'
 import DailyChart, { EquityChart } from './DailyChart.jsx'
 import MarketEvents from './MarketEvents.jsx'
+import SymbolSearch from './SymbolSearch.jsx'
 
 function Metric({ label, value, cls = '' }) {
   return (
@@ -84,9 +85,7 @@ export default function Backtest({ symbols }) {
           <div className="form-grid">
             <label>
               종목
-              <select value={form.symbol} onChange={(e) => set({ symbol: e.target.value })}>
-                {symbols.map((s) => <option key={s.symbol} value={s.symbol}>{s.name}</option>)}
-              </select>
+              <SymbolSearch symbols={symbols} value={form.symbol} onChange={(symbol) => set({ symbol })} />
             </label>
             <label>
               시작일

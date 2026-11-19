@@ -3,6 +3,7 @@ import { api } from '../../api.js'
 import { fmtNum, fmtPct, fmtWon, pctClass } from '../../format.js'
 import DailyChart, { EquityChart } from './DailyChart.jsx'
 import MarketEvents from './MarketEvents.jsx'
+import SymbolSearch from './SymbolSearch.jsx'
 
 const SPEEDS = [
   { label: '1일/초', ms: 1000 },
@@ -40,9 +41,7 @@ function Setup({ symbols, onStart }) {
       <div className="form-grid">
         <label>
           종목
-          <select value={symbol} onChange={(e) => setSymbol(e.target.value)}>
-            {symbols.map((s) => <option key={s.symbol} value={s.symbol}>{s.name}</option>)}
-          </select>
+          <SymbolSearch symbols={symbols} value={symbol} onChange={setSymbol} />
         </label>
         <label>
           시작일
