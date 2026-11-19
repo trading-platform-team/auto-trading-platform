@@ -484,3 +484,13 @@ input:focus, select:focus { outline: none; border-color: var(--accent); }
 .login-card .btn-primary { padding: 10px; margin-top: 4px; }
 .user-chip { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; padding: 4px 4px 4px 10px; border: 1px solid var(--line); border-radius: var(--radius-pill); }
 .user-chip .icon-btn { font-size: 12px; }
+
+/* 타임머신 종목 검색 */
+.symbol-search { position: relative; }
+.symbol-search input { width: 100%; }
+.symbol-search-list { position: absolute; z-index: 20; left: 0; right: 0; top: calc(100% + 4px); margin: 0; padding: 4px 0; list-style: none; background: var(--card-2); border: 1px solid var(--line-strong); border-radius: var(--radius); max-height: 280px; overflow-y: auto; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12); }
+.symbol-search-list li { padding: 7px 10px; cursor: pointer; font-weight: normal; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.symbol-search-list li:hover { background: var(--card-3); }
+.symbol-search-list li.active { background: var(--accent-soft); }
+.symbol-search-list li.symbol-search-caption { cursor: default; font-size: 12px; color: var(--muted); padding: 4px 10px 6px; border-bottom: 1px solid var(--line); }
+.symbol-search-list li.symbol-search-caption:hover { background: none; }

@@ -172,3 +172,23 @@ def test_timemachine_api(client):
     assert result["period"]["days"] == 11 and len(result["ranking"]) == 5
     assert client.post(f"/timemachine/sessions/{sid}/step", json={"days": 1}).status_code == 409
     assert client.get("/timemachine/sessions/nope").status_code == 404
+
+
+def test_any_listed_symbol_gets_history(client, monkeypatch):
+    """기본 5종목이 아니어도 전 종목 목록에 있으면 타임머신·백테스트를 할 수 있다"""
+    from app.stocks.service import StockNotFound
+
+    async def info(code):
+        if code == "373220":
+            return {"code": code, "name": "LG에너지솔루션"}
+        raise StockNotFound(code)
+
+    monkeypatch.setattr(client.app.state.stocks, "info", info)
+
+    v = client.post("/timemachine/sessions", json={"symbol": "373220", "start_date": "2024-06-03"}).json()
+    assert v["name"] == "LG에너지솔루션" and v["chart"]
+    syms = {s["symbol"]: s["name"] for s in client.get("/history/symbols").json()}
+    assert syms["373220"] == "LG에너지솔루션" and len(syms) == 6
+
+    unknown = client.post("/timemachine/sessions", json={"symbol": "999999", "start_date": "2024-06-03"})
+    assert unknown.status_code == 404
