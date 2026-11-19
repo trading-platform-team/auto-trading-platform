@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 from app import db
 from app.edu import account, progress
 from app.edu.curriculum import ORDER, UNITS
+from app.history.public_data import PublicStockClient
 from app.main import app
 from app.market.cache import save_tick
 from app.market.sources import make_tick
@@ -113,7 +114,27 @@ def test_realized_pnl_partial_sell(sqlite_db):
 @pytest.fixture
 def client(sqlite_db, fake_redis, monkeypatch):
     monkeypatch.setattr("app.main.settings.enable_consumer", False)
+    monkeypatch.setattr("app.main.settings.public_data_service_key", "test-key")
     monkeypatch.setattr("app.main.aioredis.from_url", lambda *a, **k: fake_redis)
+
+    async def latest(self, symbol, end=None):
+        return {
+            "symbol": symbol,
+            "price": 79600,
+            "price_date": "2024-01-02",
+            "source": "public_data",
+        }
+
+    async def daily(self, symbol, start, end):
+        return [
+            {"date": "2024-01-02", "open": 78000, "high": 79800, "low": 78200,
+             "close": 79600, "volume": 1000},
+            {"date": "2024-01-03", "open": 79000, "high": 80000, "low": 78000,
+             "close": 78500, "volume": 1200},
+        ]
+
+    monkeypatch.setattr(PublicStockClient, "latest", latest)
+    monkeypatch.setattr(PublicStockClient, "daily", daily)
     with TestClient(app) as c:
         yield c
 
@@ -125,6 +146,12 @@ def test_edu_api(client, fake_redis):
     assert prog["xp"] == 0 and prog["units"][0]["lessons"][0]["unlocked"]
     assert not prog["units"][0]["lessons"][1]["unlocked"]
 
+    assert client.get("/stocks/status").json()["source"] == "public_data"
+    stock = client.get("/stocks/005930").json()
+    assert stock["price"] == 79600 and stock["source"] == "public_data"
+    bars = client.get("/stocks/005930/daily?limit=5").json()
+    assert len(bars) == 2 and bars[-1]["source"] == "public_data"
+
     assert client.post("/edu/lessons/u1-l2/complete", json={"correct": 3, "total": 3}).status_code == 409
     r = client.post("/edu/lessons/u1-l1/complete", json={"correct": 3, "total": 3}).json()
     assert r["xp"] == 15 and r["streak"] == 1
@@ -135,7 +162,10 @@ def test_edu_api(client, fake_redis):
     acc = client.get("/edu/account").json()
     assert acc["cash"] == account.INITIAL_CASH
     res = client.post("/edu/account/orders", json={"symbol": "005930", "side": "buy", "quantity": 10}).json()
-    assert res["account"]["positions"][0]["quantity"] == 10 and res["badges"] == ["first_trade"]
+    position = res["account"]["positions"][0]
+    assert position["quantity"] == 10 and res["badges"] == ["first_trade"]
+    assert res["price"] == 79600 and res["price_source"] == "public_data"
+    assert position["price_source"] == "public_data" and position["price_date"] == "2024-01-02"
     bad = client.post("/edu/account/orders", json={"symbol": "005930", "side": "sell", "quantity": 99})
     assert bad.status_code == 422 and "보유 수량" in bad.json()["detail"]
     assert client.post("/edu/account/reset").json()["positions"] == []

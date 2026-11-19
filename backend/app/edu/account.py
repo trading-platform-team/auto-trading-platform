@@ -1,6 +1,6 @@
 """교육용 가상계좌: 회원가입하면 1,000만 원으로 자동 개설 (예전 가입자는 처음 사용할 때 개설)
 
-- 직접 주문: 키움 실제 현재가로 시장가 체결 (키움 연결이 안 되면 가상 시세)
+- 직접 주문: 금융위원회 최근 실제 종가로 시장가 체결 (공공데이터 연결이 안 되면 기존 시세)
 - 자동매매 주문(모의 전략): strategy/broker.py 의 PaperBroker가 전략이 본 시세로 같은 계좌에 체결
 - 현금이 부족하거나 보유 수량이 부족하면 주문 거부
 - 수수료 0.015% (매수·매도 각각), 매도 시 실현손익 기록
@@ -167,6 +167,8 @@ def snapshot(s: Session, user_id: int, prices: dict[str, dict]) -> dict:
                 "quantity": p.quantity,
                 "avg_price": round(p.avg_price),
                 "price": now,
+                "price_source": prices.get(p.symbol, {}).get("source", "fallback"),
+                "price_date": prices.get(p.symbol, {}).get("price_date"),
                 "value": round(value),
                 "pnl": round((now - p.avg_price) * p.quantity),
                 "return_pct": round((now / p.avg_price - 1) * 100, 2),

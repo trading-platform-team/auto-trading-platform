@@ -37,6 +37,12 @@ class Settings(BaseSettings):
     public_data_service_key: str = ""
     public_data_stock_url: str = "https://apis.data.go.kr/1160100/GetStockSecuritiesInfoService_V2"
 
+    # 교육용 가상계좌 과거 분봉 재생 (한국투자 Open API, 조회 전용)
+    kis_app_key: str = ""
+    kis_app_secret: str = ""
+    kis_base_url: str = "https://openapi.koreainvestment.com:9443"
+    kis_replay_interval_sec: float = 5.0
+
     # 타임머신 외부 사건 수집 (OpenDART 공시 + NAVER API HUB 뉴스)
     external_events_enabled: bool = False
     opendart_api_key: str = ""
