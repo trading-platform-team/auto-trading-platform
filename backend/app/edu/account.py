@@ -1,6 +1,8 @@
 """교육용 가상계좌: 회원가입하면 1,000만 원으로 자동 개설 (예전 가입자는 처음 사용할 때 개설)
 
-- 직접 주문: 금융위원회 최근 실제 종가로 시장가 체결 (공공데이터 연결이 안 되면 기존 시세)
+- 직접 주문: 시장가는 지금 재생 가격으로 바로 체결. 지정가는 지금 가격으로 바로 살 수 있으면(매수가 ≥ 현재가,
+  매도가 ≤ 현재가) 현재가로 체결하고, 아니면 미체결로 걸어 두었다가 재생 분봉이 그 가격에 닿으면 지정가로 체결
+- 미체결 매수는 주문 금액+수수료만큼 현금을, 미체결 매도는 그 수량만큼 보유 주식을 묶어 둔다 (다른 주문에 못 씀)
 - 자동매매 주문(모의 전략): strategy/broker.py 의 PaperBroker가 전략이 본 시세로 같은 계좌에 체결
 - 현금이 부족하거나 보유 수량이 부족하면 주문 거부
 - 수수료 0.015% (매수·매도 각각), 매도 시 실현손익 기록
@@ -11,7 +13,8 @@
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
-from app.edu.models import EduAccount, EduPosition, EduTrade, EduWatch
+from app.edu import orderbook
+from app.edu.models import EduAccount, EduOpenOrder, EduPosition, EduTrade, EduWatch
 from app.strategy.models import Order, Strategy
 
 INITIAL_CASH = 10_000_000
@@ -41,6 +44,25 @@ def get_or_create(s: Session, user_id: int) -> EduAccount:
     return acc
 
 
+def buy_cost(price: float, quantity: int) -> float:
+    return price * quantity + round(price * quantity * FEE_PCT / 100)
+
+
+def open_orders(s: Session, user_id: int, symbol: str | None = None) -> list[EduOpenOrder]:
+    q = select(EduOpenOrder).where(EduOpenOrder.user_id == user_id)
+    if symbol:
+        q = q.where(EduOpenOrder.symbol == symbol)
+    return list(s.scalars(q.order_by(EduOpenOrder.id)))
+
+
+def reserved_cash(s: Session, user_id: int) -> float:
+    return sum(buy_cost(o.price, o.quantity) for o in open_orders(s, user_id) if o.side == "buy")
+
+
+def reserved_qty(s: Session, user_id: int, symbol: str) -> int:
+    return sum(o.quantity for o in open_orders(s, user_id, symbol) if o.side == "sell")
+
+
 def place_order(
     s: Session,
     user_id: int,
@@ -67,9 +89,10 @@ def place_order(
 
     if side == "buy":
         cost = price * quantity + fee
-        if cost > acc.cash:
-            can = int(acc.cash // (price * (1 + FEE_PCT / 100)))
-            raise OrderRejected(f"현금이 부족해요. 지금은 최대 {can}주까지 살 수 있어요")
+        free = acc.cash - reserved_cash(s, user_id)
+        if cost > free:
+            can = max(int(free // (price * (1 + FEE_PCT / 100))), 0)
+            raise OrderRejected(f"현금이 부족해요. 지금은 최대 {can}주까지 살 수 있어요{_reserve_note(s, user_id)}")
         acc.cash -= cost
         if pos:
             pos.avg_price = (pos.avg_price * pos.quantity + price * quantity) / (pos.quantity + quantity)
@@ -78,7 +101,11 @@ def place_order(
             s.add(EduPosition(user_id=user_id, symbol=symbol, quantity=quantity, avg_price=price))
     elif side == "sell":
         held = pos.quantity if pos else 0
-        if quantity > held:
+        locked = reserved_qty(s, user_id, symbol)
+        if quantity > held - locked:
+            if locked:
+                note = f" (미체결 매도 {locked}주 제외)"
+                raise OrderRejected(f"보유 수량이 부족해요. 지금 {held - locked}주 팔 수 있어요{note}")
             raise OrderRejected(f"보유 수량이 부족해요. 지금 {held}주 가지고 있어요")
         acc.cash += price * quantity - fee
         pnl = realized_pnl(pos.avg_price, price, quantity, fee)
@@ -106,9 +133,86 @@ def place_order(
     return trade
 
 
+def _reserve_note(s: Session, user_id: int) -> str:
+    return " (미체결 매수 주문에 묶인 현금은 제외)" if reserved_cash(s, user_id) else ""
+
+
+def place_limit_order(
+    s: Session, user_id: int, symbol: str, side: str, quantity: int, limit: float, market_price: float,
+    tick: int | None = None,
+) -> tuple[EduTrade | None, EduOpenOrder | None]:
+    """지정가 주문. 지금 가격으로 바로 체결되면 (trade, None), 미체결로 걸리면 (None, open_order)"""
+    if quantity <= 0:
+        raise OrderRejected("수량은 1주 이상이어야 해요")
+    if side not in ("buy", "sell"):
+        raise OrderRejected("side는 buy 또는 sell")
+    if not orderbook.is_valid_price(limit, tick):
+        unit = tick or (orderbook.tick_size(limit) if limit > 0 else 1)
+        raise OrderRejected(f"주문 가격은 호가 단위({unit:,}원)에 맞춰야 해요")
+    if market_price > 0 and (limit >= market_price if side == "buy" else limit <= market_price):
+        # 더 좋은 가격에 바로 살·팔 수 있으면 지금 가격으로 체결 (실제 거래소와 같은 방식)
+        return place_order(s, user_id, symbol, side, quantity, market_price), None
+    get_or_create(s, user_id)
+    if side == "buy":
+        free = s.get(EduAccount, user_id).cash - reserved_cash(s, user_id)
+        if buy_cost(limit, quantity) > free:
+            can = max(int(free // (limit * (1 + FEE_PCT / 100))), 0)
+            note = _reserve_note(s, user_id)
+            raise OrderRejected(f"현금이 부족해요. 이 가격이면 최대 {can}주까지 주문할 수 있어요{note}")
+    else:
+        pos = s.scalar(select(EduPosition).where(EduPosition.user_id == user_id, EduPosition.symbol == symbol))
+        free = (pos.quantity if pos else 0) - reserved_qty(s, user_id, symbol)
+        if quantity > free:
+            raise OrderRejected(f"보유 수량이 부족해요. 지금 {max(free, 0)}주 팔 수 있어요")
+    o = EduOpenOrder(user_id=user_id, symbol=symbol, side=side, quantity=quantity, price=limit)
+    s.add(o)
+    s.commit()
+    return None, o
+
+
+def cancel_order(s: Session, user_id: int, order_id: int) -> None:
+    o = s.get(EduOpenOrder, order_id)
+    if not o or o.user_id != user_id:
+        raise OrderRejected("없거나 이미 체결된 주문이에요")
+    s.delete(o)
+    s.commit()
+
+
+def touches(order: EduOpenOrder, quote: dict) -> bool:
+    """재생 분봉이 지정가에 닿았는지: 매수는 저가 ≤ 지정가, 매도는 고가 ≥ 지정가"""
+    if order.side == "buy":
+        return min(quote.get("low") or quote["price"], quote["price"]) <= order.price
+    return max(quote.get("high") or quote["price"], quote["price"]) >= order.price
+
+
+def match_open_orders(s: Session, quotes: dict[str, dict], user_id: int | None = None) -> list[EduTrade]:
+    """quotes(종목 → 재생 분봉)에 닿은 미체결 주문을 지정가로 체결. 체결할 수 없게 된 주문은 취소."""
+    q = select(EduOpenOrder).where(EduOpenOrder.symbol.in_(list(quotes)))
+    if user_id is not None:
+        q = q.where(EduOpenOrder.user_id == user_id)
+    filled = []
+    for o in list(s.scalars(q.order_by(EduOpenOrder.id))):
+        quote = quotes[o.symbol]
+        if not quote or not quote.get("price") or not touches(o, quote):
+            continue
+        uid, symbol, side, qty, price = o.user_id, o.symbol, o.side, o.quantity, o.price
+        s.delete(o)  # 묶어 둔 현금·수량을 풀고 체결
+        s.flush()
+        try:
+            filled.append(place_order(s, uid, symbol, side, qty, price, commit=False))
+        except OrderRejected:
+            pass  # 그 사이 자동매매가 팔아 버린 경우 등: 주문은 취소된 채로 둔다
+    s.commit()
+    return filled
+
+
+def open_order_symbols(s: Session) -> list[str]:
+    return list(s.scalars(select(EduOpenOrder.symbol).distinct()))
+
+
 def reset(s: Session, user_id: int) -> None:
     # Order: 자동매매 모의 주문 내역 (이 계좌로 체결된 기록이라 같이 지움). 키움 실주문은 별도 테이블
-    for model in (EduPosition, EduTrade, Order):
+    for model in (EduPosition, EduTrade, EduOpenOrder, Order):
         s.execute(delete(model).where(model.user_id == user_id))
     acc = get_or_create(s, user_id)
     acc.cash = acc.initial_cash
@@ -181,9 +285,26 @@ def snapshot(s: Session, user_id: int, prices: dict[str, dict]) -> dict:
     )
     names = strategy_names(s, {t.strategy_id for t in trades if t.strategy_id is not None})
     realized = s.scalars(select(EduTrade.realized_pnl).where(EduTrade.user_id == user_id, EduTrade.side == "sell"))
+    pending = open_orders(s, user_id)
+    locked_cash = sum(buy_cost(o.price, o.quantity) for o in pending if o.side == "buy")
+    for x in positions:
+        x["sellable"] = x["quantity"] - sum(o.quantity for o in pending if o.side == "sell" and o.symbol == x["symbol"])
     return {
         "initial_cash": acc.initial_cash,
         "cash": round(acc.cash),
+        "available_cash": round(acc.cash - locked_cash),  # 미체결 매수에 묶인 현금을 뺀 주문 가능 금액
+        "open_orders": [
+            {
+                "id": o.id,
+                "symbol": o.symbol,
+                "name": prices.get(o.symbol, {}).get("name", o.symbol),
+                "side": o.side,
+                "quantity": o.quantity,
+                "price": o.price,
+                "created_at": o.created_at.isoformat(),
+            }
+            for o in pending
+        ],
         "stock_value": stock_value,
         "equity": round(equity),
         "return_pct": round((equity / acc.initial_cash - 1) * 100, 2),
@@ -210,8 +331,11 @@ def snapshot(s: Session, user_id: int, prices: dict[str, dict]) -> dict:
 
 
 def symbols(s: Session, user_id: int) -> list[str]:
-    """평가·표시에 시세가 필요한 종목 (보유 + 최근 거래)"""
-    held = s.scalars(select(EduPosition.symbol).where(EduPosition.user_id == user_id))
+    """평가·표시에 시세가 필요한 종목 (보유 + 미체결 + 최근 거래)"""
+    held = [
+        *s.scalars(select(EduPosition.symbol).where(EduPosition.user_id == user_id)),
+        *s.scalars(select(EduOpenOrder.symbol).where(EduOpenOrder.user_id == user_id)),
+    ]
     traded = s.scalars(
         select(EduTrade.symbol).where(EduTrade.user_id == user_id).order_by(EduTrade.id.desc()).limit(30)
     )

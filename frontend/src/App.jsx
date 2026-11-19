@@ -75,15 +75,7 @@ function Dashboard({ username }) {
           <EducationPage onNavigate={setPage} />
         </main>
       ) : page === 'paper' ? (
-        <PaperTradingPage
-          symbols={symbols}
-          selected={selected}
-          onSelected={setSelected}
-          selectedName={selectedName}
-          anomalySymbols={recentAnomalySymbols}
-          alerts={alerts}
-          anomalies={anomalies}
-        />
+        <PaperTradingPage symbols={symbols} alerts={alerts} anomalies={anomalies} />
       ) : page === 'timemachine' ? (
         <main className="tm-main">
           <TimeMachinePage />

@@ -1,53 +1,18 @@
-import { useState } from 'react'
-import { Sprout, Wallet } from 'lucide-react'
-import BeginnerMode from './BeginnerMode.jsx'
 import Practice from './education/Practice.jsx'
 import './education/edu.css'
 
-export default function PaperTradingPage({
-  symbols,
-  selected,
-  onSelected,
-  selectedName,
-  anomalySymbols,
-  alerts,
-  anomalies,
-}) {
-  const [tab, setTab] = useState('account')
-
+// 모의투자: 가상계좌 하나로 직접 주문(지정가·시장가)과 자동매매를 같이 한다
+export default function PaperTradingPage({ symbols, alerts, anomalies }) {
   return (
     <main className="paper-main">
       <section className="mode-intro">
         <div>
           <span className="mode-kicker">가상자금으로 안전하게</span>
           <h2>모의투자</h2>
-          <p>실제 돈은 사용하지 않습니다. 교육용 계좌로 주문을 연습하거나 초보자용 자동매매 화면을 이용하세요.</p>
-        </div>
-        <div className="seg" role="tablist" aria-label="모의투자 화면 선택">
-          <button role="tab" aria-selected={tab === 'account'} className={tab === 'account' ? 'on' : ''} onClick={() => setTab('account')}>
-            <Wallet size={16} aria-hidden />
-            가상계좌 연습
-          </button>
-          <button role="tab" aria-selected={tab === 'beginner'} className={tab === 'beginner' ? 'on' : ''} onClick={() => setTab('beginner')}>
-            <Sprout size={16} aria-hidden />
-            초보자 자동매매
-          </button>
+          <p>실제 돈은 사용하지 않습니다. 호가창을 보며 직접 주문하거나, 주문 영역의 자동매매 탭에서 전략을 걸어 두세요.</p>
         </div>
       </section>
-
-      {tab === 'account' ? (
-        <div className="paper-content"><Practice /></div>
-      ) : (
-        <BeginnerMode
-          symbols={symbols}
-          selected={selected}
-          onSelected={onSelected}
-          selectedName={selectedName}
-          anomalySymbols={anomalySymbols}
-          alerts={alerts}
-          anomalies={anomalies}
-        />
-      )}
+      <div className="paper-content"><Practice symbols={symbols} alerts={alerts} anomalies={anomalies} /></div>
     </main>
   )
 }

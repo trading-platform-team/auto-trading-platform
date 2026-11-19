@@ -73,6 +73,20 @@ class EduTrade(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
 
+class EduOpenOrder(Base):
+    """가상계좌 지정가 미체결 주문. 체결되면 EduTrade를 남기고 지우고, 취소해도 지운다."""
+
+    __tablename__ = "edu_open_orders"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(Integer, index=True)
+    symbol: Mapped[str] = mapped_column(String(20), index=True)
+    side: Mapped[str] = mapped_column(String(4))
+    quantity: Mapped[int] = mapped_column(Integer)
+    price: Mapped[float] = mapped_column(Float)  # 지정가
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
 class EduWatch(Base):
     """가상계좌 연습 관심종목"""
 

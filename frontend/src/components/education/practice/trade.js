@@ -36,3 +36,21 @@ export function periodChange(bars) {
   const last = bars[bars.length - 1].close
   return first ? ((last - first) / first) * 100 : null
 }
+
+// 한국거래소 호가 단위 표 (백엔드 app/edu/orderbook.py와 같게). 호가창 응답에 tick이 오면 그 값을 쓴다
+// (실제 분봉 가격으로 정한 단위라 표보다 촘촘할 수 있다)
+const TICKS = [[2000, 1], [5000, 5], [20000, 10], [50000, 50], [200000, 100], [500000, 500]]
+export function tickSize(price) {
+  for (const [limit, tick] of TICKS) if (price < limit) return tick
+  return 1000
+}
+
+// 호가 n칸 위(+)·아래(−) 가격. tick이 없으면 표를 따라 구간마다 단위를 바꾼다
+export function stepPrice(price, n, tick) {
+  let p = Math.floor(price)
+  if (tick) return Math.max(p + tick * n, tick)
+  for (let i = 0; i < Math.abs(n); i += 1) p = n > 0 ? p + tickSize(p) : p > 1 ? p - tickSize(p - 1) : p
+  return Math.max(p, 1)
+}
+
+export const validPrice = (price, tick) => Number.isInteger(price) && price > 0 && price % (tick || tickSize(price)) === 0
