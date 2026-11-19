@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     ai_service_url: str = "http://localhost:8001"
 
     # 시세 파이프라인
-    market_source: str = "mock"  # mock | kiwoom
+    market_source: str = "mock"  # mock | kis_replay | kiwoom
     price_topic: str = "stock.price"
     tick_interval_sec: float = 1.0
     enable_consumer: bool = True
@@ -36,6 +36,12 @@ class Settings(BaseSettings):
     # 타임머신 과거 일봉 (금융위원회 주식시세정보, 공공데이터포털)
     public_data_service_key: str = ""
     public_data_stock_url: str = "https://apis.data.go.kr/1160100/GetStockSecuritiesInfoService_V2"
+
+    # 교육용 가상계좌 과거 분봉 재생 (한국투자 Open API, 조회 전용)
+    kis_app_key: str = ""
+    kis_app_secret: str = ""
+    kis_base_url: str = "https://openapi.koreainvestment.com:9443"
+    kis_replay_interval_sec: float = 5.0
 
     # 타임머신 외부 사건 수집 (OpenDART 공시 + NAVER API HUB 뉴스)
     external_events_enabled: bool = False

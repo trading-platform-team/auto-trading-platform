@@ -2,9 +2,11 @@
 
 - MockSource: 키움 API 키 없이 개발·시연할 수 있는 가상 시세 (랜덤워크 + 가끔 급등락).
   기본 종목에 더해 켜진 전략의 종목도 만든다
+- KisReplaySource: 한국투자 실제 과거 1분봉을 5초마다 Kafka로 재생
 - KiwoomSource: 키움 실시간 시세 (플랫폼 키, 보고 있는 종목·전략 종목만 동적 구독)
 """
 
+import asyncio
 import random
 from datetime import datetime, timezone
 
@@ -28,6 +30,42 @@ def make_tick(symbol: str, name: str, price: float, volume: int, bid_size: int, 
         "ask_size": ask_size,
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
+
+
+class StartQuotes:
+    """모의 시세에 새로 넣을 종목의 이름·시작가 (키움 현재가 → 공공데이터 최근 종가 순, 둘 다 없으면 빈 값)"""
+
+    def __init__(self, redis, kiwoom=None, public=None):
+        from app.core.config import settings
+        from app.history.public_data import PublicStockClient
+        from app.kiwoom import platform
+        from app.stocks.service import StockService
+
+        self.public = public or PublicStockClient(settings.public_data_service_key, settings.public_data_stock_url)
+        self.names = StockService(redis, public=self.public)  # 종목명 (가상계좌 연습과 같은 공공데이터 종목 목록)
+        self.kiwoom = StockService(redis, kiwoom or platform.team_client() or platform.open_team_client())
+
+    async def quotes(self, codes: list[str]) -> dict[str, dict]:
+        out = {}
+        try:
+            out = {c: q for c, q in (await self.kiwoom.quotes(codes)).items() if q.get("price")}
+        except Exception:  # noqa: BLE001 - 키움 실패 시 공공데이터로
+            pass
+        master = await self.names.master()
+        for c in codes:
+            q = out.get(c)
+            if q is None and self.public.enabled:
+                try:
+                    q = await self.public.latest(c)
+                except Exception:  # noqa: BLE001
+                    q = None
+            q = dict(q or {})
+            q["name"] = (master.get(c) or {}).get("name") or q.get("name") or c
+            out[c] = q
+        return out
+
+    async def close(self) -> None:
+        await self.public.close()
 
 
 class MockSource:
@@ -70,6 +108,10 @@ class MockSource:
             self.symbols[sym] = (q.get("name") or sym, price)
             self.prices[sym] = float(price)
 
+    async def close(self) -> None:
+        if self.stocks is not None and hasattr(self.stocks, "close"):
+            await self.stocks.close()
+
     def next_ticks(self) -> list[dict]:
         ticks = []
         for symbol, (name, _) in self.symbols.items():
@@ -94,6 +136,84 @@ class MockSource:
             self.prices[symbol] = max(1.0, self.prices[symbol] * (1 + change))
             ticks.append(make_tick(symbol, name, self.prices[symbol], volume, bid, ask))
         return ticks
+
+
+class KisReplaySource:
+    """한국투자 과거 분봉을 자동매매 엔진용 실시간 시세처럼 재생한다."""
+
+    def __init__(self, client=None, symbols: dict | None = None, interval: float | None = None, redis=None,
+                 request_delay: float = 1.0):
+        from app.core.config import settings
+        from app.history.kis_minutes import KisMinuteClient
+
+        self.client = client or KisMinuteClient(
+            settings.kis_app_key,
+            settings.kis_app_secret,
+            settings.kis_base_url,
+            settings.kis_replay_interval_sec,
+            redis=redis,
+        )
+        if not self.client.enabled:
+            raise RuntimeError(
+                "한국투자 키가 없습니다. .env에 KIS_APP_KEY / KIS_APP_SECRET을 넣거나 "
+                "MARKET_SOURCE=mock으로 실행하세요"
+            )
+        self.symbols = symbols or DEFAULT_SYMBOLS
+        self.interval = settings.kis_replay_interval_sec if interval is None else max(0, interval)
+        self.request_delay = max(0, request_delay)
+
+    async def close(self) -> None:
+        await self.client.close()
+
+    async def stream(self):
+        import logging
+
+        log = logging.getLogger(__name__)
+        bars = None
+        while bars is None:
+            try:
+                loaded = {}
+                # 토큰 중복 발급과 API 순간 호출 집중을 피하려고 종목별로 차례대로 준비한다.
+                for symbol in self.symbols:
+                    last_error = None
+                    for attempt in range(3):
+                        try:
+                            loaded[symbol] = await self.client.minutes(symbol)
+                            break
+                        except Exception as exc:  # 종목별 순간 제한은 짧게 재시도
+                            last_error = exc
+                            if attempt < 2:
+                                await asyncio.sleep(2)
+                    if symbol not in loaded:
+                        raise last_error or RuntimeError(f"{symbol} 분봉을 받지 못했습니다")
+                    await asyncio.sleep(self.request_delay)
+                bars = loaded
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:  # 외부 API 일시 제한이면 프로세스를 종료하지 않고 재시도
+                log.warning("한국투자 분봉 준비 실패: %s → 60초 후 재시도", exc)
+                await asyncio.sleep(60)
+        cursor = 0
+        while True:
+            ticks = []
+            for symbol, (name, _) in self.symbols.items():
+                rows = bars[symbol]
+                row = rows[cursor % len(rows)]
+                ticks.append({
+                    "symbol": symbol,
+                    "name": name,
+                    "price": round(row["price"]),
+                    "volume": row["volume"],
+                    "bid_size": 0,
+                    "ask_size": 0,
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "market_timestamp": row["timestamp"],
+                    "price_date": row["price_date"],
+                    "source": "kis_replay",
+                })
+            yield ticks
+            cursor += 1
+            await asyncio.sleep(self.interval)
 
 
 class KiwoomSource:
@@ -185,11 +305,9 @@ def create_source(name: str, redis=None):
     if name == "mock":
         if redis is None:
             return MockSource()
-        from app.kiwoom import platform
-        from app.stocks.service import StockService
-
-        client = platform.team_client() or platform.open_team_client()
-        return MockSource(redis=redis, stocks=StockService(redis, client))
+        return MockSource(redis=redis, stocks=StartQuotes(redis))
     if name == "kiwoom":
         return KiwoomSource(redis)
+    if name == "kis_replay":
+        return KisReplaySource(redis=redis)
     raise ValueError(f"알 수 없는 시세 소스: {name}")

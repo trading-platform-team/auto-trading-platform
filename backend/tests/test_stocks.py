@@ -271,6 +271,8 @@ def client(sqlite_db, fake_redis, monkeypatch):
 
     monkeypatch.setattr(KiwoomClient, "__init__", init)
     with TestClient(app) as c:
+        # 이 테스트는 키움 종목·시세 서비스 자체를 검증한다. 실제 앱의 교육용 stocks는 공공데이터 전용이다.
+        c.app.state.stocks = c.app.state.real_stocks
         yield c
 
 

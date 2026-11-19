@@ -2,6 +2,7 @@
 
 시세 소스에서 데이터를 받아 Kafka 토픽(stock.price)으로 보낸다.
 - mock: 가상 시세 1초마다 (기본 종목 + 켜진 전략 종목)
+- kis_replay: 한국투자 실제 과거 1분봉을 5초마다 재생
 - kiwoom: 팀 키로 실시간 WebSocket 구독 (구독 종목은 Redis를 보고 동적으로 맞춤)
 실행: python -m app.market.collector
 """
@@ -66,6 +67,8 @@ async def run() -> None:
                 await asyncio.sleep(settings.tick_interval_sec)
     finally:
         await producer.stop()
+        if hasattr(source, "close"):
+            await source.close()
         await platform.close_team_client()
         await r.aclose()
 

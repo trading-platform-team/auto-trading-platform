@@ -4,7 +4,7 @@ from fastapi.testclient import TestClient
 
 from app.main import app
 from app.market.cache import MAX_TICKS, get_latest, get_ticks, save_tick
-from app.market.sources import DEFAULT_SYMBOLS, MockSource, create_source
+from app.market.sources import DEFAULT_SYMBOLS, KisReplaySource, MockSource, create_source
 
 REQUIRED_FIELDS = {"symbol", "name", "price", "volume", "bid_size", "ask_size", "timestamp"}
 
@@ -26,6 +26,32 @@ def test_mock_source_injects_anomalies():
 def test_unknown_source():
     with pytest.raises(ValueError):
         create_source("nope")
+
+
+@pytest.mark.asyncio
+async def test_kis_replay_source_emits_real_bars_in_order():
+    class FakeClient:
+        enabled = True
+
+        async def minutes(self, symbol):
+            return [
+                {"timestamp": "2026-11-18T09:00:00", "price_date": "2026-11-18", "price": 100, "volume": 10},
+                {"timestamp": "2026-11-18T09:01:00", "price_date": "2026-11-18", "price": 110, "volume": 20},
+            ]
+
+        async def close(self):
+            pass
+
+    source = KisReplaySource(FakeClient(), {"005930": ("삼성전자", 0)}, interval=0, request_delay=0)
+    stream = source.stream()
+    first = await anext(stream)
+    second = await anext(stream)
+    await stream.aclose()
+
+    assert first[0]["price"] == 100
+    assert second[0]["price"] == 110
+    assert first[0]["source"] == "kis_replay"
+    assert first[0]["market_timestamp"] == "2026-11-18T09:00:00"
 
 
 @pytest.mark.asyncio
@@ -51,6 +77,20 @@ async def test_cache_keeps_only_recent_ticks():
     for _ in range(MAX_TICKS + 20):
         await save_tick(r, src.next_ticks()[0])
     assert len(await get_ticks(r, "005930", limit=1000)) == MAX_TICKS
+
+
+@pytest.mark.asyncio
+async def test_cache_clears_chart_when_price_source_changes():
+    r = fakeredis.FakeAsyncRedis(decode_responses=True)
+    mock = MockSource(symbols={"005930": ("삼성전자", 70000)}, seed=4).next_ticks()[0]
+    mock["source"] = "mock"
+    await save_tick(r, mock)
+    await save_tick(r, {**mock, "price": 190000, "source": "kis_replay"})
+
+    rows = await get_ticks(r, "005930", limit=10)
+    assert len(rows) == 1
+    assert rows[0]["price"] == 190000
+    assert rows[0]["source"] == "kis_replay"
 
 
 def test_market_api(monkeypatch, sqlite_db):
@@ -90,3 +130,31 @@ async def test_mock_source_without_redis_keeps_defaults():
     src = MockSource(seed=6)
     await src.sync()
     assert {t["symbol"] for t in src.next_ticks()} == set(DEFAULT_SYMBOLS)
+
+
+class _Public:
+    enabled = True
+
+    async def master(self):
+        row = {"code": "086520", "name": "에코프로", "market": "KOSDAQ", "sector": "금속", "cap": 1.0}
+        return [{**row, "warning": None}]
+
+    async def latest(self, code):
+        return {"symbol": code, "price": 95300, "source": "public_data"} if code == "086520" else None
+
+    async def close(self):
+        pass
+
+
+class _NoKey:
+    enabled = False
+
+
+@pytest.mark.asyncio
+async def test_start_quotes_uses_public_data_without_kiwoom(fake_redis):
+    """키움 키가 없으면 공공데이터 종목명·최근 종가에서 가상 시세를 시작한다"""
+    from app.market.sources import StartQuotes
+
+    got = await StartQuotes(fake_redis, kiwoom=_NoKey(), public=_Public()).quotes(["086520", "999999"])
+    assert got["086520"]["name"] == "에코프로" and got["086520"]["price"] == 95300
+    assert got["999999"]["name"] == "999999" and not got["999999"].get("price")
