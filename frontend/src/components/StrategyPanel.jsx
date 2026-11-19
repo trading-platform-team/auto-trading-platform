@@ -73,11 +73,18 @@ export default function StrategyPanel({ symbols, selected, beginner = false }) {
         <div className="form-grid">
           <label className="wide" data-explain={beginner ? 'strategyName' : undefined}>이름<input value={form.name} placeholder="내 전략" onChange={(e) => set({ name: e.target.value })} /></label>
           <label data-explain={beginner ? 'symbol' : undefined}>종목
-            <SymbolSearch
-              value={form.symbol}
-              name={nameOf(form.symbol)}
-              onChange={(symbol, name) => (setNames((n) => ({ ...n, [symbol]: name })), set({ symbol }))}
-            />
+            {beginner ? (
+              // 초보자: 시세가 들어오는 종목만 (kis_replay는 기본 종목 분봉만 재생하므로 다른 종목은 주문이 나가지 않음)
+              <select value={form.symbol} onChange={(e) => set({ symbol: e.target.value })}>
+                {symbols.map((s) => <option key={s.symbol} value={s.symbol}>{s.name}</option>)}
+              </select>
+            ) : (
+              <SymbolSearch
+                value={form.symbol}
+                name={nameOf(form.symbol)}
+                onChange={(symbol, name) => (setNames((n) => ({ ...n, [symbol]: name })), set({ symbol }))}
+              />
+            )}
           </label>
           <label data-explain={beginner ? 'tradeSide' : undefined}>매매
             <select value={form.side} onChange={(e) => set({ side: e.target.value })}>
