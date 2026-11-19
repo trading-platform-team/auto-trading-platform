@@ -142,6 +142,7 @@ class TickAggregator:
         ticks = []
         for sym, p in self.pending.items():
             bid, ask = self.book.get(sym, (0, 0))
-            ticks.append(make_tick(sym, name_of(sym), p["price"], p["volume"], bid, ask))
+            # source: 키움 실거래 전략은 이 표시가 있는 시세에만 주문한다 (strategy/engine.on_tick)
+            ticks.append({**make_tick(sym, name_of(sym), p["price"], p["volume"], bid, ask), "source": "kiwoom"})
         self.pending.clear()
         return ticks
