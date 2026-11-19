@@ -4,7 +4,7 @@ from datetime import date
 
 import httpx
 
-from app.history.public_data import PublicStockClient
+from app.history.public_data import PublicDataError, PublicStockClient
 from app.stocks.service import StockService
 
 
@@ -162,3 +162,80 @@ def test_latest_uses_last_close_and_cache():
         assert first["price_date"] == "2024-01-31" and calls == 1
 
     asyncio.run(run())
+
+
+
+# ---------- 오류 메시지에 서비스키가 새지 않는지, 429 뒤에 쉬는지, 일봉 캐시 ----------
+def _body(items):
+    return {"response": {"header": {"resultCode": "00"}, "body": {"items": {"item": items}, "totalCount": len(items)}}}
+
+
+def test_errors_hide_service_key_and_429_pauses_calls():
+    calls = []
+
+    def handler(request):
+        calls.append(request.url)
+        return httpx.Response(429, json={})
+
+    async def run():
+        client = PublicStockClient("SECRET-KEY-123", "https://example.test", transport=httpx.MockTransport(handler))
+        try:
+            await client.daily("005930", date(2026, 11, 1), date(2026, 11, 18))
+        except PublicDataError as e:
+            first = e
+        try:
+            await client.daily("000660", date(2026, 11, 1), date(2026, 11, 18))
+        except PublicDataError as e:
+            second = e
+        await client.close()
+        return first, second
+
+    first, second = asyncio.run(run())
+    assert "SECRET-KEY-123" not in str(first) and "example.test" not in str(first)
+    assert "요청이 너무 많아" in str(first) and first.__cause__ is None
+    assert "쉬는 중" in str(second) and len(calls) == 1  # 쉬는 동안은 호출하지 않는다
+
+
+def test_daily_is_cached():
+    calls = []
+    item = {"basDt": "20261118", "srtnCd": "005930", "mkp": "1", "hipr": "1", "lopr": "1", "clpr": "1", "trqu": "1"}
+
+    def handler(request):
+        calls.append(1)
+        return httpx.Response(200, json=_body([item]))
+
+    async def run():
+        client = PublicStockClient("k", "https://example.test", transport=httpx.MockTransport(handler))
+        first = await client.daily("005930", date(2026, 11, 1), date(2026, 11, 18))
+        first[0]["close"] = 999  # 돌려준 목록을 바꿔도 캐시는 그대로
+        second = await client.daily("005930", date(2026, 11, 1), date(2026, 11, 18))
+        await client.close()
+        return second
+
+    second = asyncio.run(run())
+    assert len(calls) == 1 and second[0]["close"] == 1
+
+
+def test_master_rows_carry_close_and_browse_uses_it(fake_redis):
+    from app.history.public_data import _day_quote
+
+    raw = {"clpr": "193300", "vs": "-100", "fltRt": "-0.05", "trqu": "17701", "mkp": "193300",
+           "hipr": "193600", "lopr": "193100"}
+    quote = _day_quote(raw, "20261118")
+    assert quote["price"] == 193300 and quote["change_pct"] == -0.05 and quote["price_date"] == "2026-11-18"
+    assert _day_quote({"clpr": "0"}, "20261118") is None
+
+    class Public:
+        enabled = True
+
+        async def master(self):
+            return [{"code": "000270", "name": "기아", "market": "KOSPI", "sector": "기타",
+                     "cap": 1, "warning": None, "quote": quote}]
+
+    async def run():
+        service = StockService(fake_redis, public=Public())
+        items = await service.browse("KOSPI", None, "cap", 10)
+        return items
+
+    items = asyncio.run(run())
+    assert items[0]["symbol"] == "000270" and items[0]["price"] == 193300  # 추가 호출 없이 목록 가격

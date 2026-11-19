@@ -21,14 +21,18 @@ Market = Literal["KOSPI", "KOSDAQ"]
 
 
 async def public_quotes(public: PublicStockClient, items: list[dict]) -> list[dict]:
-    """기존 종목 정보에 공공데이터 최근 실제 종가를 덮어쓴다."""
-    if not public.enabled or not items:
+    """가격이 없는 종목만 공공데이터 최근 실제 종가로 채운다.
+
+    종목 목록에 최근 종가가 같이 들어 있어서 보통은 호출하지 않는다 (공공데이터는 초당 요청 제한이 있다).
+    """
+    missing = [item for item in items if not item.get("price")]
+    if not public.enabled or not missing:
         return items
     results = await asyncio.gather(
-        *(public.latest(item["symbol"]) for item in items),
+        *(public.latest(item["symbol"]) for item in missing),
         return_exceptions=True,
     )
-    for item, quote in zip(items, results, strict=True):
+    for item, quote in zip(missing, results, strict=True):
         if isinstance(quote, dict):
             item.update(quote)
     return items
