@@ -14,6 +14,7 @@ import logging
 import time
 from datetime import datetime
 
+from app.history.public_data import PublicDataError, PublicStockClient
 from app.kiwoom.client import KST, KiwoomClient, KiwoomError, num
 from app.market.cache import get_latest
 from app.market.sources import DEFAULT_SYMBOLS
@@ -21,6 +22,7 @@ from app.market.sources import DEFAULT_SYMBOLS
 log = logging.getLogger("uvicorn.error")
 
 MASTER_KEY = "stocks:master"
+PUBLIC_MASTER_KEY = "stocks:master:public"
 MASTER_TTL = 12 * 3600
 QUOTE_KEY = "stocks:quote:{code}"
 QUOTE_TTL = 5
@@ -93,11 +95,13 @@ def _quote_row(row: dict) -> dict:
 
 
 class StockService:
-    def __init__(self, redis, kiwoom: KiwoomClient | None = None):
+    def __init__(self, redis, kiwoom: KiwoomClient | None = None, public: PublicStockClient | None = None):
         self.redis = redis
         self.kiwoom = kiwoom if kiwoom and kiwoom.enabled else None
+        self.public = public if public and public.enabled else None
         self._master: dict[str, dict] = {}
-        self._real = False  # 종목 목록을 키움에서 받았는지
+        self._real = False
+        self._source = "mock"
         self._loading: asyncio.Task | None = None
         self._retry_at = 0.0  # 키움 종목 목록 실패 후 다시 시도할 시각 (매 요청마다 재시도하지 않도록)
         self.last_error: str | None = None
@@ -105,7 +109,7 @@ class StockService:
     # ---------- 상태 ----------
     @property
     def source(self) -> str:
-        return "kiwoom" if self.kiwoom and self._real else "mock"
+        return self._source if self._real else "mock"
 
     def status(self) -> dict:
         return {
@@ -120,7 +124,7 @@ class StockService:
     # ---------- 종목 목록 ----------
     def warm(self) -> None:
         """서버 시작 시 종목 목록을 미리 받기 시작 (기다리지 않음)"""
-        if self.kiwoom and not self._real and self._loading is None:
+        if (self.public or self.kiwoom) and not self._real and self._loading is None:
             self._loading = asyncio.create_task(self._fetch_master())
 
     async def master(self) -> dict[str, dict]:
@@ -130,7 +134,7 @@ class StockService:
         """
         if self._real:
             return self._master
-        if self.kiwoom and time.monotonic() >= self._retry_at:
+        if (self.public or self.kiwoom) and time.monotonic() >= self._retry_at:
             self.warm()
             if self._loading is not None:
                 try:
@@ -156,20 +160,25 @@ class StockService:
     async def _fetch_master(self) -> None:
         started = time.monotonic()
         try:
-            cached = await self.redis.get(MASTER_KEY)
-            rows = json.loads(cached) if cached else await self._load_master()
+            cache_key = PUBLIC_MASTER_KEY if self.public else MASTER_KEY
+            cached = await self.redis.get(cache_key)
+            rows = json.loads(cached) if cached else (
+                await self.public.master() if self.public else await self._load_master()
+            )
             if not cached:
-                await self.redis.set(MASTER_KEY, json.dumps(rows, ensure_ascii=False), ex=MASTER_TTL)
+                await self.redis.set(cache_key, json.dumps(rows, ensure_ascii=False), ex=MASTER_TTL)
             self._master = {r["code"]: r for r in rows}
             self._real = True
+            self._source = "public_data" if self.public else "kiwoom"
             self.last_error = None
             log.info(
-                "키움 종목 목록 %d개 (%.1f초, %s)", len(rows), time.monotonic() - started, "캐시" if cached else "키움"
+                "종목 목록 %d개 (%.1f초, %s)", len(rows), time.monotonic() - started,
+                "캐시" if cached else self._source,
             )
-        except (KiwoomError, OSError, ValueError) as e:
+        except (KiwoomError, PublicDataError, OSError, ValueError) as e:
             self.last_error = f"종목 목록: {e}"
             self._retry_at = time.monotonic() + RETRY_SEC
-            log.warning("키움 종목 목록 실패, 가상 종목으로 대체: %s", e)
+            log.warning("종목 목록 실패, 가상 종목으로 대체: %s", e)
         finally:
             self._loading = None
 
@@ -295,7 +304,7 @@ class StockService:
                         "change": None,
                         "change_pct": None,
                         "volume": t.get("volume"),
-                        "source": "mock",
+                        "source": t.get("source", "mock"),
                     }
         for c, q in out.items():
             meta = master.get(c, {})
