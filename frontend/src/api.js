@@ -60,8 +60,11 @@ export const api = {
   eduComplete: (lessonId, correct, total) =>
     request(`/edu/lessons/${lessonId}/complete`, { method: 'POST', body: JSON.stringify({ correct, total }) }),
   eduAccount: () => request('/edu/account'),
-  eduOrder: (symbol, side, quantity) =>
-    request('/edu/account/orders', { method: 'POST', body: JSON.stringify({ symbol, side, quantity }) }),
+  // opts: { order_type: 'market' | 'limit', price } (지정가는 price 필수)
+  eduOrder: (symbol, side, quantity, opts = {}) =>
+    request('/edu/account/orders', { method: 'POST', body: JSON.stringify({ symbol, side, quantity, ...opts }) }),
+  eduCancelOrder: (id) => request(`/edu/account/orders/${id}`, { method: 'DELETE' }),
+  eduOrderbook: (code) => request(`/edu/orderbook/${code}`),
   eduReset: () => request('/edu/account/reset', { method: 'POST' }),
   eduWatchlist: () => request('/edu/watchlist'),
   eduWatchAdd: (code) => request(`/edu/watchlist/${code}`, { method: 'PUT' }),

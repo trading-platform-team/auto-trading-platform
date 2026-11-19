@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { api } from '../api.js'
 import { canUseExit, conditionLabel, exitLabel, PRESETS, toStrategyPayload } from '../format.js'
 import { ConditionList, emptyCond, signalCond } from './ConditionEditor.jsx'
@@ -6,13 +6,21 @@ import { usePolling } from '../hooks.js'
 
 const PRESET_HELP = ['presetRsiBuy', 'presetGoldenCross', 'presetBollingerBuy', 'presetRsiSell', 'presetDeadCross']
 
-export default function StrategyPanel({ symbols, selected, beginner = false }) {
+// fixedSymbol: 선택한 종목에만 등록 (주문 영역의 자동매매 탭)
+// fixedAccount: 주문 계좌를 고정 ('paper' 가상계좌 | 'kiwoom' 키움 실거래) → 계좌 선택 칸을 숨김
+export default function StrategyPanel({ symbols, selected, beginner = false, fixedSymbol = false, fixedAccount = null, disabled = false, selectedName = null }) {
   const [tick, setTick] = useState(0)
   const { data: strategies } = usePolling(api.strategies, 5000, [tick])
   const refresh = () => setTick((t) => t + 1)
   const [msg, setMsg] = useState(null)
   const [form, setForm] = useState({ name: '', symbol: selected, side: 'buy', quantity: 10, cooldown_sec: 60, account: 'paper', take_profit_pct: '', stop_loss_pct: '', conditions: [signalCond()] })
   const set = (patch) => setForm((f) => ({ ...f, ...patch }))
+  useEffect(() => {
+    if (fixedSymbol) setForm((f) => ({ ...f, symbol: selected }))
+  }, [fixedSymbol, selected])
+  useEffect(() => {
+    if (fixedAccount) setForm((f) => ({ ...f, account: fixedAccount }))
+  }, [fixedAccount])
 
   const applyPreset = (p) => set({ name: p.name, side: p.side, conditions: p.conditions.map((c) => ({ ...emptyCond(), ...c })), symbol: selected })
 
@@ -38,12 +46,20 @@ export default function StrategyPanel({ symbols, selected, beginner = false }) {
     await api.deleteStrategy(id)
     refresh()
   }
-  const nameOf = (code) => symbols.find((s) => s.symbol === code)?.name ?? code
+  const list = (strategies ?? []).filter(
+    (s) => (!fixedSymbol || s.symbol === selected) && (!fixedAccount || (s.account ?? 'paper') === fixedAccount),
+  )
+  const nameOf = (code) => symbols.find((s) => s.symbol === code)?.name ?? ((code === selected && selectedName) || code)
 
   return (
     <section className="card" data-explain={beginner ? 'strategy' : undefined}>
       <div className="card-head">
         <h2>자동매매 전략</h2>
+        {fixedSymbol && (
+          <span className="muted small">
+            {selectedName ?? nameOf(selected)}에 등록{fixedAccount === 'kiwoom' ? ' · 키움 계좌로 실제 주문' : fixedAccount === 'paper' ? ' · 가상계좌 주문' : ''}
+          </span>
+        )}
       </div>
 
       <div className="presets">
@@ -56,11 +72,13 @@ export default function StrategyPanel({ symbols, selected, beginner = false }) {
       <form className="strategy-form" onSubmit={submit}>
         <div className="form-grid">
           <label className="wide" data-explain={beginner ? 'strategyName' : undefined}>이름<input value={form.name} placeholder="내 전략" onChange={(e) => set({ name: e.target.value })} /></label>
-          <label data-explain={beginner ? 'symbol' : undefined}>종목
-            <select value={form.symbol} onChange={(e) => set({ symbol: e.target.value })}>
-              {symbols.map((s) => <option key={s.symbol} value={s.symbol}>{s.name}</option>)}
-            </select>
-          </label>
+          {!fixedSymbol && (
+            <label data-explain={beginner ? 'symbol' : undefined}>종목
+              <select value={form.symbol} onChange={(e) => set({ symbol: e.target.value })}>
+                {symbols.map((s) => <option key={s.symbol} value={s.symbol}>{s.name}</option>)}
+              </select>
+            </label>
+          )}
           <label data-explain={beginner ? 'tradeSide' : undefined}>매매
             <select value={form.side} onChange={(e) => set({ side: e.target.value })}>
               <option value="buy">매수</option>
@@ -79,7 +97,7 @@ export default function StrategyPanel({ symbols, selected, beginner = false }) {
               </label>
             </>
           )}
-          {!beginner && (
+          {!fixedAccount && !beginner && (
             <label>주문 계좌
               <select value={form.account} onChange={(e) => set({ account: e.target.value })}>
                 <option value="paper">모의 주문</option>
@@ -93,14 +111,14 @@ export default function StrategyPanel({ symbols, selected, beginner = false }) {
         <div data-explain={beginner ? 'condition' : undefined}><ConditionList conditions={form.conditions} onChange={(conditions) => set({ conditions })} beginner={beginner} /></div>
         <div className="form-actions">
           <span />
-          <button type="submit" className="btn btn-primary">전략 등록</button>
+          <button type="submit" className="btn btn-primary" disabled={disabled}>전략 등록</button>
         </div>
         {msg && <p className={msg.ok ? 'msg-ok' : 'msg-err'}>{msg.text}</p>}
       </form>
 
       <div className="strategy-list">
-        {(strategies ?? []).length === 0 && <p className="empty">등록된 전략이 없어요</p>}
-        {(strategies ?? []).map((s) => (
+        {list.length === 0 && <p className="empty">{fixedSymbol ? '이 종목에 ' : ''}등록된 전략이 없어요</p>}
+        {list.map((s) => (
           <div key={s.id} className={`strategy-item ${s.enabled ? '' : 'off'}`}>
             <div>
               <b>{s.name}</b>{' '}
