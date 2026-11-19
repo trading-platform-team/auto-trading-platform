@@ -300,3 +300,39 @@ def test_stocks_api_and_practice_with_real_prices(client):
     assert [x["symbol"] for x in items] == ["000660", "005930"] and items[0]["price"] == 510000
     assert client.put("/edu/watchlist/999999").status_code == 404
     assert [x["symbol"] for x in client.delete("/edu/watchlist/000660").json()] == ["005930"]
+
+
+# ---------- 종목 목록과 상세 가격 일치 ----------
+def test_daily_change_uses_previous_close():
+    from app.stocks.service import daily_change
+
+    day = {"price": 194700, "change": -1300, "price_date": "2026-11-18"}
+    assert daily_change(192800, "2026-11-19", day) == (-1900, -0.98)  # 공공데이터가 하루 늦음 → 그 종가가 전날 종가
+    assert daily_change(194700, "2026-11-18", day) == (-1300, -0.66)  # 같은 날 → 종가 - 등락 = 전날 종가
+    assert daily_change(100, "2026-11-19", None) == (None, None)
+
+
+def test_list_ignores_mock_ticks_and_uses_cached_replay(fake_redis):
+    class Replay:
+        def cached_quote(self, symbol):
+            if symbol == "000660":
+                return {"symbol": symbol, "price": 196000.0, "price_date": "2026-11-19", "source": "kis_replay"}
+            return None
+
+    svc = StockService(fake_redis)
+    svc._real = True
+    svc._master = {
+        c: {"code": c, "name": n, "market": "KOSPI", "sector": "기타", "cap": 1.0, "warning": None,
+            "quote": {"price": p, "change": 0.0, "change_pct": 0.0, "price_date": "2026-11-18",
+                      "source": "public_data"}}
+        for c, n, p in [("005930", "삼성전자", 194700.0), ("000660", "SK하이닉스", 200000.0)]
+    }
+    svc.replay = Replay()
+
+    async def run():
+        await save_tick(fake_redis, make_tick("005930", "삼성전자", 66247, 100, 500, 500))  # 예전 가상 시세
+        q = await svc.quotes(["005930", "000660"])
+        assert q["005930"]["price"] == 194700 and q["005930"]["source"] == "public_data"  # 가상 시세 무시
+        assert q["000660"]["price"] == 196000 and q["000660"]["change_pct"] == -2.0  # 재생 가격, 전날 종가 대비
+
+    asyncio.run(run())

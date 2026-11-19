@@ -51,6 +51,7 @@ async def lifespan(app: FastAPI):
         settings.kis_replay_interval_sec,
         redis=app.state.redis,
     )
+    app.state.stocks.replay = app.state.kis_minutes  # 재생 중인 종목은 목록에도 같은 가격
     app.state.stocks.warm()  # 종목 목록을 미리 받기 시작
     app.state.real_stocks.warm()
     log.info("가상계좌 연습 시세: %s", "키움 REST API" if kiwoom.enabled else "가상 시세 (키움 키 없음)")

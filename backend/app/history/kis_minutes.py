@@ -108,10 +108,19 @@ class KisMinuteClient:
         self._cache[symbol] = (time.monotonic() + 600, rows)
         return rows
 
+    def cached_quote(self, symbol: str) -> dict | None:
+        """이미 받아 둔 분봉이 있으면 지금 재생 위치의 시세 (API를 새로 부르지 않음, 종목 목록 표시용)"""
+        cached = self._cache.get(symbol)
+        if not self.enabled or not cached or cached[0] <= time.monotonic():
+            return None
+        return self._quote_at(symbol, cached[1])
+
     async def replay_quote(self, symbol: str) -> dict | None:
         if not self.enabled:
             return None
-        rows = await self.minutes(symbol)
+        return self._quote_at(symbol, await self.minutes(symbol))
+
+    def _quote_at(self, symbol: str, rows: list[dict]) -> dict:
         index = int(time.time() / self.interval) % len(rows)
         row = dict(rows[index])
         previous = rows[index - 1]["price"] if index else rows[0]["open"]

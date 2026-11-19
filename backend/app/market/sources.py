@@ -30,6 +30,7 @@ def make_tick(symbol: str, name: str, price: float, volume: int, bid_size: int, 
         "bid_size": bid_size,
         "ask_size": ask_size,
         "timestamp": datetime.now(timezone.utc).isoformat(),
+        "source": "mock",
     }
 
 

@@ -7,7 +7,7 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
 from app.history.public_data import PublicDataError, PublicStockClient
-from app.stocks.service import MARKET_LABEL, QuoteUnavailable, StockNotFound, StockService
+from app.stocks.service import MARKET_LABEL, QuoteUnavailable, StockNotFound, StockService, daily_change
 
 router = APIRouter(prefix="/stocks", tags=["stocks"])
 
@@ -105,6 +105,8 @@ async def detail(code: str, request: Request, svc: StocksDep):
         "warning": info["warning"],
     }
     if q.get("source") == "kis_replay":
+        change, pct = daily_change(q["price"], q.get("price_date"), info.get("quote"))
+        result.update(change=change, change_pct=pct)  # 직전 1분이 아니라 전날 종가 대비 (목록과 같은 기준)
         return result
     return (await public_quotes(request.app.state.public_stocks, [result]))[0]
 
