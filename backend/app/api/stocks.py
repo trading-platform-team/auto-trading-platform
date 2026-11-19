@@ -39,7 +39,10 @@ async def status(request: Request, svc: StocksDep):
     """가상계좌 연습의 가격 출처와 종목 목록 상태"""
     await svc.master()
     result = svc.status()
-    if request.app.state.public_stocks.enabled:
+    if request.app.state.kis_minutes.enabled:
+        result["source"] = "kis_replay"
+        result["replay_interval_sec"] = request.app.state.kis_minutes.interval
+    elif request.app.state.public_stocks.enabled:
         result["source"] = "public_data"
     return result
 
@@ -83,7 +86,12 @@ async def detail(code: str, request: Request, svc: StocksDep):
         info = await svc.info(code)
     except StockNotFound as e:
         raise HTTPException(404, "없는 종목이에요") from e
-    q = (await svc.quotes([code])).get(code, {})
+    try:
+        q = await request.app.state.kis_minutes.replay_quote(code) or {}
+    except Exception:  # 분봉 장애 시 기존 시세·공공데이터로 안전하게 대체
+        q = {}
+    if not q:
+        q = (await svc.quotes([code])).get(code, {})
     result = {
         **q,
         "symbol": code,
@@ -92,6 +100,8 @@ async def detail(code: str, request: Request, svc: StocksDep):
         "sector": info["sector"],
         "warning": info["warning"],
     }
+    if q.get("source") == "kis_replay":
+        return result
     return (await public_quotes(request.app.state.public_stocks, [result]))[0]
 
 

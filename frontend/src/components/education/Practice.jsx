@@ -83,7 +83,7 @@ export default function Practice({ onBadge }) {
       <p className="empty">교육용 계좌 불러오는 중...</p>
     )
   const ms = missions(account)
-  const real = status?.source === 'public_data' || status?.source === 'kiwoom'
+  const real = status?.source === 'kis_replay' || status?.source === 'public_data' || status?.source === 'kiwoom'
 
   return (
     <div className="practice">
@@ -91,7 +91,9 @@ export default function Practice({ onBadge }) {
         <span className="dot" />
         {status == null
           ? '시세 연결 확인 중...'
-          : status?.source === 'public_data'
+          : status?.source === 'kis_replay'
+            ? `한국투자 실제 과거 분봉 재생 · 코스피·코스닥 ${fmtNum(status.stocks)}개 종목`
+            : status?.source === 'public_data'
             ? `금융위원회 실제 최근 종가 · 코스피·코스닥 ${fmtNum(status.stocks)}개 종목`
             : real
               ? `키움증권 실제 시세 · 코스피·코스닥 ${fmtNum(status.stocks)}개 종목`
@@ -100,7 +102,9 @@ export default function Practice({ onBadge }) {
               : `가상 시세로 연습 중${status.error ? ` (${status.error})` : ''}`}
         {status && (
           <span className="muted small">
-            {status.source === 'public_data'
+            {status.source === 'kis_replay'
+              ? ` · ${fmtNum(status.replay_interval_sec)}초마다 다음 1분봉으로 움직여요 · 실제 주문은 나가지 않아요`
+              : status.source === 'public_data'
               ? ' · 최근 실제 거래일 종가로 체결돼요'
               : status.market_open ? ' · 장 운영 중 (09:00~15:30)' : ' · 장 마감: 마지막 가격으로 체결돼요'}
           </span>

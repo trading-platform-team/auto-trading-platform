@@ -12,6 +12,7 @@ from app.auth.deps import CurrentUser
 from app.edu import account, progress
 from app.edu.curriculum import UNITS
 from app.history.public_data import PublicDataError, PublicStockClient
+from app.history.kis_minutes import KisMinuteError
 from app.stocks.service import QuoteUnavailable, StockNotFound, StockService
 
 router = APIRouter(prefix="/edu", tags=["education"])
@@ -57,13 +58,18 @@ async def _public_quotes(public: PublicStockClient, codes: list[str]) -> dict[st
     }
 
 
-async def _prices(public: PublicStockClient, svc: StockService, s, user_id: int) -> dict[str, dict]:
+async def _prices(request: Request, public: PublicStockClient, svc: StockService, s, user_id: int) -> dict[str, dict]:
     """보유·거래 종목의 현재가와 이름 (snapshot용)"""
     codes = account.symbols(s, user_id)
     s.rollback()  # 키움 응답을 기다리는 동안 DB 연결을 붙잡지 않도록 반납 (읽기만 했음)
     if not codes:
         return {}
-    prices = await _public_quotes(public, codes)
+    replay = await asyncio.gather(
+        *(request.app.state.kis_minutes.replay_quote(code) for code in codes), return_exceptions=True
+    )
+    prices = {code: quote for code, quote in zip(codes, replay, strict=True) if isinstance(quote, dict)}
+    missing = [code for code in codes if code not in prices]
+    prices.update(await _public_quotes(public, missing))
     missing = [code for code in codes if code not in prices]
     prices.update(await svc.quotes(missing))
     master = await svc.master()
@@ -75,7 +81,7 @@ async def _prices(public: PublicStockClient, svc: StockService, s, user_id: int)
 
 @router.get("/account")
 async def get_account(request: Request, svc: StocksDep, s: SessionDep, user: CurrentUser):
-    return account.snapshot(s, user["id"], await _prices(request.app.state.public_stocks, svc, s, user["id"]))
+    return account.snapshot(s, user["id"], await _prices(request, request.app.state.public_stocks, svc, s, user["id"]))
 
 
 class EduOrderIn(BaseModel):
@@ -86,7 +92,7 @@ class EduOrderIn(BaseModel):
 
 @router.post("/account/orders")
 async def order(body: EduOrderIn, request: Request, svc: StocksDep, s: SessionDep, user: CurrentUser):
-    """금융위원회 최근 실제 종가(실패 시 기존 시세)로 교육용 시장가 주문"""
+    """한국투자 분봉 재생가(실패 시 공공데이터 종가)로 교육용 시장가 주문"""
     quote = None
     try:
         await svc.info(body.symbol)
@@ -95,9 +101,14 @@ async def order(body: EduOrderIn, request: Request, svc: StocksDep, s: SessionDe
             raise HTTPException(503, "키움 종목 목록을 불러오는 중이에요. 잠시 후 다시 시도해 주세요") from e
         raise HTTPException(404, "없는 종목이에요") from e
     try:
-        quote = await request.app.state.public_stocks.latest(body.symbol)
-    except PublicDataError:
-        pass
+        quote = await request.app.state.kis_minutes.replay_quote(body.symbol)
+    except KisMinuteError:
+        quote = None
+    if not quote:
+        try:
+            quote = await request.app.state.public_stocks.latest(body.symbol)
+        except PublicDataError:
+            pass
     try:
         price = quote["price"] if quote else await svc.price(body.symbol)
     except QuoteUnavailable:
@@ -108,7 +119,7 @@ async def order(body: EduOrderIn, request: Request, svc: StocksDep, s: SessionDe
     except account.OrderRejected as e:
         raise HTTPException(422, str(e)) from e
     snap = account.snapshot(
-        s, user["id"], await _prices(request.app.state.public_stocks, svc, s, user["id"])
+        s, user["id"], await _prices(request, request.app.state.public_stocks, svc, s, user["id"])
     )
     new_badges = [b for b in progress.badges(s, user["id"]) if b not in before]
     return {
@@ -126,7 +137,7 @@ async def order(body: EduOrderIn, request: Request, svc: StocksDep, s: SessionDe
 async def reset(request: Request, svc: StocksDep, s: SessionDep, user: CurrentUser):
     account.reset(s, user["id"])
     return account.snapshot(
-        s, user["id"], await _prices(request.app.state.public_stocks, svc, s, user["id"])
+        s, user["id"], await _prices(request, request.app.state.public_stocks, svc, s, user["id"])
     )
 
 
